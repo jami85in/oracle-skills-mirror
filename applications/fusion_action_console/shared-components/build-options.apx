@@ -1,0 +1,21 @@
+buildOption commented-out (
+    name: Commented Out
+)
+
+buildOption phase-2-oci-genai-agents (
+    name: Phase 2 - OCI Generative AI Agents Tool
+    status {
+        status: exclude
+        defaultOnExport: exclude
+        onUpgradeKeepStatus: true
+    }
+)
+
+buildOption phase-2-fusion-agent-studio (
+    name: Phase 2 - Fusion AI Agent Studio Tool
+    status {
+        status: exclude
+        defaultOnExport: exclude
+        onUpgradeKeepStatus: true
+    }
+)

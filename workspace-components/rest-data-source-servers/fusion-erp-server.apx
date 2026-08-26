@@ -1,0 +1,19 @@
+restDataSourceServer fusion-erp-server (
+    name: Fusion ERP Non-Prod
+    endpointUrl {
+        url: "https://PENDING-FUSION-POD-HOST"
+    }
+    advanced {
+        staticId: fusion-erp-server
+        promptOnInstall: true
+    }
+    comments {
+        comments:
+            ```
+            Host for the non-prod Fusion pod (plan discovery item #1).
+            promptOnInstall:true lets the real URL be supplied per
+            environment at import time rather than hardcoded, which also
+            helps with discovery item #8 (test vs. prod promotion) later.
+            ```
+    }
+)

@@ -1,0 +1,577 @@
+page 100 (
+    name: My Approvals
+    alias: MY-APPROVALS
+    title: My Approvals
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: REGION_POSITION_01
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region my-approvals-report (
+        name: My Approvals - Report
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select task_id,
+                       task_type,
+                       task_def_name,
+                       details_app_name,
+                       details_link_target,
+                       subject,
+                       initiator,
+                       actual_owner,
+                       priority,
+                       due_on,
+                       due_in,
+                       due_in_hours,
+                       due_code,
+                       state_code,
+                       is_completed,
+                       outcome,
+                       created_on,
+                       created_ago,
+                       created_ago_hours,
+                       last_updated_on,
+                       badge_text,
+                       badge_state
+                  from table ( apex_human_task.get_tasks (
+                                   p_context            => 'MY_TASKS',
+                                   p_show_expired_tasks => 'N' ) )
+                 order by created_on desc
+                ```
+            optimizerHint: APEX$USE_NO_GROUPING_SETS
+        }
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/cards-container
+            templateOptions: #DEFAULT#
+        }
+        accessibility {
+            landmarkType: main
+        }
+        componentAppearance {
+            display: report
+        }
+        title {
+            title: &SUBJECT.
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                <strong>&TASK_DEF_NAME!HTML.</strong>
+                {if INITIATOR/}
+                    <span role="separator" aria-label="&middot;"> &middot; </span>
+                    &{APEX.TASK.INITIATED_BY_USER_SINCE 0=&INITIATOR!HTML. 1=&CREATED_AGO.}.
+                {endif/}
+                {if !IS_COMPLETED/}
+                    {case DUE_CODE/}
+                        {when OVERDUE/}
+                            <span role="separator" aria-label="&middot;"> &middot; </span>
+                            <strong class="u-danger-text">&{APEX.TASK.DUE_SINCE 0=&DUE_IN.}.</strong>
+                        {otherwise/}
+                            {if DUE_IN/}
+                                <span role="separator" aria-label="&middot;"> &middot; </span>
+                                &{APEX.TASK.DUE_SINCE 0=&DUE_IN.}.
+                            {endif/}
+                    {endcase/}
+                {endif/}
+                ```
+        }
+        plugin-badge {
+            displayBadge: true
+            label: State
+            value: BADGE_TEXT
+            state: BADGE_STATE
+        }
+        plugin-appearance {
+            applyThemeColors: false
+        }
+        pagination {
+            type: scroll
+        }
+        entityTitle {
+            singular: approval
+            plural: approvals
+        }
+        messages {
+            whenNoDataFound: No approvals waiting for you
+            noDataFoundIcon: fa-clipboard-check-alt fa-lg
+        }
+
+        column TASK_ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: TASK_ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column TASK_TYPE (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: TASK_TYPE
+                dataType: varchar2
+            }
+        )
+
+        column TASK_DEF_NAME (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: TASK_DEF_NAME
+                dataType: varchar2
+            }
+        )
+
+        column DETAILS_APP_NAME (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: DETAILS_APP_NAME
+                dataType: varchar2
+            }
+        )
+
+        column DETAILS_LINK_TARGET (
+            layout {
+                sequence: 50
+            }
+            source {
+                databaseColumn: DETAILS_LINK_TARGET
+                dataType: varchar2
+            }
+        )
+
+        column SUBJECT (
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: SUBJECT
+                dataType: varchar2
+            }
+            accessibility {
+                valueIdentifiesRow: true
+            }
+        )
+
+        column INITIATOR (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: INITIATOR
+                dataType: varchar2
+            }
+        )
+
+        column ACTUAL_OWNER (
+            layout {
+                sequence: 80
+            }
+            source {
+                databaseColumn: ACTUAL_OWNER
+                dataType: varchar2
+            }
+        )
+
+        column PRIORITY (
+            layout {
+                sequence: 90
+            }
+            source {
+                databaseColumn: PRIORITY
+                dataType: number
+            }
+        )
+
+        column DUE_ON (
+            layout {
+                sequence: 100
+            }
+            source {
+                databaseColumn: DUE_ON
+                dataType: timestampWithTimeZone
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column DUE_IN (
+            layout {
+                sequence: 110
+            }
+            source {
+                databaseColumn: DUE_IN
+                dataType: varchar2
+            }
+        )
+
+        column DUE_IN_HOURS (
+            layout {
+                sequence: 120
+            }
+            source {
+                databaseColumn: DUE_IN_HOURS
+                dataType: varchar2
+            }
+        )
+
+        column DUE_CODE (
+            layout {
+                sequence: 130
+            }
+            source {
+                databaseColumn: DUE_CODE
+                dataType: varchar2
+            }
+        )
+
+        column STATE_CODE (
+            layout {
+                sequence: 140
+            }
+            source {
+                databaseColumn: STATE_CODE
+                dataType: varchar2
+            }
+        )
+
+        column IS_COMPLETED (
+            layout {
+                sequence: 150
+            }
+            source {
+                databaseColumn: IS_COMPLETED
+                dataType: varchar2
+            }
+        )
+
+        column OUTCOME (
+            layout {
+                sequence: 160
+            }
+            source {
+                databaseColumn: OUTCOME
+                dataType: varchar2
+            }
+        )
+
+        column CREATED_ON (
+            layout {
+                sequence: 170
+            }
+            source {
+                databaseColumn: CREATED_ON
+                dataType: timestampWithTimeZone
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column CREATED_AGO (
+            layout {
+                sequence: 180
+            }
+            source {
+                databaseColumn: CREATED_AGO
+                dataType: varchar2
+            }
+        )
+
+        column CREATED_AGO_HOURS (
+            layout {
+                sequence: 190
+            }
+            source {
+                databaseColumn: CREATED_AGO_HOURS
+                dataType: number
+            }
+        )
+
+        column LAST_UPDATED_ON (
+            layout {
+                sequence: 200
+            }
+            source {
+                databaseColumn: LAST_UPDATED_ON
+                dataType: timestampWithTimeZone
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column BADGE_TEXT (
+            layout {
+                sequence: 210
+            }
+            source {
+                databaseColumn: BADGE_TEXT
+                dataType: varchar2
+            }
+        )
+
+        column BADGE_STATE (
+            layout {
+                sequence: 220
+            }
+            source {
+                databaseColumn: BADGE_STATE
+                dataType: varchar2
+            }
+        )
+
+        action action (
+            position: titleLink
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: &DETAILS_LINK_TARGET.
+            }
+        )
+
+        action task-actions (
+            position: primaryActions
+            template: menu
+            label: Actions
+            layout {
+                sequence: 20
+            }
+            appearance {
+                displayType: icon
+                icon: fa-ellipsis-v
+            }
+
+            menu approve (
+                label: Approve
+                layout {
+                    sequence: 10
+                }
+                behavior {
+                    type: redirectUrl
+                    targetUrl: #
+                    linkAttributes: "data-id="&TASK_ID.""
+                }
+                serverSideCondition {
+                    type: expression
+                    plsqlExpression: :TASK_TYPE = 'APPROVAL' and :STATE_CODE != 'INFO_REQUESTED'
+                }
+            )
+
+            menu reject (
+                label: Reject
+                layout {
+                    sequence: 20
+                }
+                behavior {
+                    type: redirectUrl
+                    targetUrl: #
+                    linkAttributes: "data-id="&TASK_ID.""
+                }
+                serverSideCondition {
+                    type: expression
+                    plsqlExpression: :TASK_TYPE = 'APPROVAL' and :STATE_CODE != 'INFO_REQUESTED'
+                }
+            )
+        )
+
+    )
+
+    pageItem P100_TASK_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        sessionState {
+            storage: request
+        }
+        security {
+            sessionStateProtection: unrestricted
+            encryptSessionState: false
+        }
+    )
+
+    dynamicAction approve (
+        name: Approve
+        execution {
+            sequence: 10
+            eventScope: dynamic
+            staticContainer: body
+        }
+        when {
+            event: click
+            selectionType: jQuerySelector
+            jquerySelector: a.approve
+        }
+
+        action native-set-value (
+            action: setValue
+            affectedElements {
+                selectionType: items
+                items: P100_TASK_ID
+            }
+            execution {
+                sequence: 10
+                event: @approve
+                fireOnInit: false
+            }
+        )
+
+        action native-execute-plsql-code (
+            action: executeServerSideCode
+            execution {
+                sequence: 20
+                event: @approve
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @my-approvals-report
+            }
+            execution {
+                sequence: 30
+                event: @approve
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction reject (
+        name: Reject
+        execution {
+            sequence: 20
+            eventScope: dynamic
+            staticContainer: body
+        }
+        when {
+            event: click
+            selectionType: jQuerySelector
+            jquerySelector: a.reject
+        }
+
+        action native-set-value (
+            action: setValue
+            affectedElements {
+                selectionType: items
+                items: P100_TASK_ID
+            }
+            execution {
+                sequence: 10
+                event: @reject
+                fireOnInit: false
+            }
+        )
+
+        action native-execute-plsql-code (
+            action: executeServerSideCode
+            execution {
+                sequence: 20
+                event: @reject
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @my-approvals-report
+            }
+            execution {
+                sequence: 30
+                event: @reject
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-my-approvals-report (
+        name: Refresh - My Approvals - Report
+        execution {
+            sequence: 30
+        }
+        when {
+            event: apexafterclosecanceldialog
+            selectionType: region
+            region: @my-approvals-report
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @my-approvals-report
+            }
+            execution {
+                sequence: 10
+                event: @refresh-my-approvals-report
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    comments {
+        comments:
+            ```
+            Trimmed from the skill's task-definition-my-tasks-page proven
+            example: dropped smart filters, claim, and sort-by since this
+            console's approvers are resolved directly (no unassigned pool)
+            and a v1 approval list doesn't need those yet. The
+            approve/reject a.approve/a.reject + executeServerSideCode
+            pattern is kept exactly as proven - do not alter the CSS-class
+            selector wiring without re-verifying against a working import.
+            ```
+    }
+
+)

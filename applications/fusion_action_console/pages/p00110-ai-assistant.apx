@@ -1,0 +1,108 @@
+page 110 (
+    name: AI Assistant
+    alias: AI-ASSISTANT
+    title: Fusion Console Assistant
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: doNotFocusCursor
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: REGION_POSITION_01
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region ai-assistant-hero (
+        name: Fusion Console Assistant
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: REGION_POSITION_01
+        }
+        appearance {
+            template: @/hero
+            templateOptions: #DEFAULT#
+        }
+        image {
+            fileUrl: #APP_FILES#icons/app-icon-512.png
+        }
+    )
+
+    button open-ai-chat (
+        buttonName: OPEN_AI_CHAT
+        label: Start Conversation
+        layout {
+            sequence: 10
+            region: @ai-assistant-hero
+            slot: BODY
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-chatbot
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    dynamicAction open-assistant (
+        name: Open Assistant
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @open-ai-chat
+        }
+
+        action native-open-ai-assistant (
+            action: showAiAssistant
+            genAI {
+                agent: @fusion-console-agent
+            }
+            execution {
+                sequence: 10
+                event: @open-assistant
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    comments {
+        comments:
+            ```
+            Direct adaptation of the skill's chatbot-page proven example,
+            bound to shared-components/ai-agents/fusion-console-agent.apx
+            instead of the example's placeholder @home agent.
+            ```
+    }
+
+)

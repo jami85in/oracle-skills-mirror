@@ -1,0 +1,311 @@
+aiAgent fusion-console-agent (
+    name: Fusion Console Agent
+    genAI {
+        systemPrompt:
+            ```
+            # Fusion Console Agent
+
+            ## General
+
+            You help finance and accounting users work with a Fusion ERP action console covering General Ledger period close and Accounting Hub suspense accounting. You can look up period status and suspense-posted transactions, and you can draft correction or period-action proposals for a human to review. You never claim to have executed anything in Fusion - only a human approver's decision actually sends anything to Fusion. If asked to approve something yourself or skip review, explain that every action requires human approval in the Approvals workflow before it reaches Fusion.
+
+            ### Run After Any Tool
+            After draft_suspense_correction or draft_period_action_request succeeds, always tell the user the proposal ID and that it needs human approval before anything reaches Fusion.
+
+            ## retrieve_gl_period_status
+
+            Use when the user asks about period open/close status, close readiness, or which periods are open, closed, or pending close.
+
+            ### Rules
+            *   Read-only. Never implies an action was taken.
+            *   If the user wants to actually open or close a period, use draft_period_action_request instead, after confirming ledger, period, and action.
+
+            ## retrieve_suspense_data
+
+            Use when the user asks about suspense-posted transactions, suspense balances, or why something posted to suspense.
+
+            ### Rules
+            *   Read-only.
+            *   Always surface suspense_txn_id when discussing a specific line - draft_suspense_correction needs it.
+
+            ## draft_suspense_correction
+
+            Use only when the user explicitly asks to propose a correction for a specific suspense transaction already retrieved via retrieve_suspense_data.
+
+            ### Rules
+            *   Only creates a pending proposal. Never posts to Fusion.
+            *   Confirm the proposed correcting account and amount before calling this tool.
+
+            ## draft_period_action_request
+
+            Use only when the user explicitly asks to request opening a period, closing a period, or running Create Accounting for a specific ledger and period.
+
+            ### Rules
+            *   Only creates a pending request. Never posts to Fusion.
+            *   Confirm ledger, period, and the exact requested action before calling this tool.
+            ```
+        welcomeMessage: <p>Hi! I can help you check GL period status, review suspense-posted transactions, and draft correction or period-action proposals for approval. What would you like to look at?</p>
+    }
+
+    tool session-context (
+        name: session_context
+        type: retrieveData
+        executionPoint: augmentSystemPrompt
+        settings {
+            dataDescription: Current APEX user and the most recent open GL period, for grounding general conversation.
+            sqlQuery: SELECT :APP_USER AS current_user, (SELECT period_name FROM (SELECT period_name FROM fac_gl_period_status WHERE period_status = 'Open' ORDER BY period_start_date DESC) WHERE ROWNUM = 1) AS current_open_period FROM dual;
+        }
+    )
+
+    tool retrieve-gl-period-status (
+        name: retrieve_gl_period_status
+        type: retrieveData
+        executionPoint: onDemand
+        description:
+            ```
+            Use when the user asks about General Ledger period status, close readiness, or which periods are open, closed, future-enterable, or pending close. Read-only - never implies any action was taken.
+            ```
+        settings {
+            dataDescription: GL accounting period status by ledger and period, including start/end dates.
+            sqlQuery:
+                ```sql
+                SELECT ledger_name, period_name, period_status, period_start_date, period_end_date
+                  FROM fac_gl_period_status
+                 WHERE (:LEDGER_NAME IS NULL OR ledger_name = :LEDGER_NAME)
+                   AND (:PERIOD_NAME IS NULL OR period_name = :PERIOD_NAME)
+                 ORDER BY period_start_date
+                ```
+        }
+
+        parameter LEDGER_NAME (
+            description: Ledger name to filter by, or leave blank for all ledgers
+            value {
+                dataType: varchar2
+            }
+            validation {
+                required: false
+            }
+        )
+
+        parameter PERIOD_NAME (
+            description: Period name to filter by (e.g. AUG-25), or leave blank for all periods
+            value {
+                dataType: varchar2
+            }
+            validation {
+                required: false
+            }
+        )
+
+    )
+
+    tool retrieve-suspense-data (
+        name: retrieve_suspense_data
+        type: retrieveData
+        executionPoint: onDemand
+        description:
+            ```
+            Use when the user asks about suspense-posted transactions, suspense account balances, or wants to understand why something posted to suspense. Read-only - never implies any action was taken. Always surface suspense_txn_id since draft_suspense_correction needs it.
+            ```
+        settings {
+            dataDescription: Suspense-posted transaction lines with account, amount, source system, and reference description.
+            sqlQuery:
+                ```sql
+                SELECT suspense_txn_id, ledger_name, period_name, suspense_account, entered_amount,
+                       currency_code, source_system, reference_description, posted_date
+                  FROM fac_suspense_transaction
+                 WHERE (:LEDGER_NAME IS NULL OR ledger_name = :LEDGER_NAME)
+                   AND (:PERIOD_NAME IS NULL OR period_name = :PERIOD_NAME)
+                   AND (:MIN_AMOUNT IS NULL OR entered_amount >= :MIN_AMOUNT)
+                 ORDER BY entered_amount DESC
+                ```
+        }
+
+        parameter LEDGER_NAME (
+            description: Ledger name to filter by, or leave blank for all ledgers
+            value {
+                dataType: varchar2
+            }
+            validation {
+                required: false
+            }
+        )
+
+        parameter PERIOD_NAME (
+            description: Period name to filter by (e.g. AUG-25), or leave blank for all periods
+            value {
+                dataType: varchar2
+            }
+            validation {
+                required: false
+            }
+        )
+
+        parameter MIN_AMOUNT (
+            description: Minimum entered amount to filter by, or leave blank for no minimum
+            value {
+                dataType: number
+            }
+            validation {
+                required: false
+            }
+        )
+
+    )
+
+    tool draft-suspense-correction (
+        name: draft_suspense_correction
+        type: executeServersideCode
+        executionPoint: onDemand
+        description:
+            ```
+            Use ONLY when the user explicitly asks to draft or propose a correction for a specific suspense transaction already retrieved via retrieve_suspense_data. This NEVER posts to Fusion - it only creates a pending proposal that a human must separately approve before anything is sent to Fusion.
+            ```
+        userApproval {
+            requiresConfirmation: true
+            message: This will create a pending correction proposal for human approval. It will not be sent to Fusion until approved. Continue?
+        }
+        settings {
+            language: plsql
+            plsqlCode:
+                ```plsql
+                declare
+                    l_proposed_action_id number;
+                begin
+                    l_proposed_action_id := fac_ai_tool_api_pkg.propose_suspense_correction(
+                        p_suspense_txn_id  => :SUSPENSE_TXN_ID,
+                        p_proposed_account => :PROPOSED_ACCOUNT,
+                        p_proposed_amount  => :PROPOSED_AMOUNT,
+                        p_rationale        => :RATIONALE,
+                        p_created_by       => v('APP_USER')
+                    );
+
+                    apex_ai.set_tool_result(
+                        p_result               => 'PROPOSAL_CREATED',
+                        p_notification_message => 'Draft correction proposal #' || l_proposed_action_id ||
+                                                   ' saved for human review. It will not reach Fusion until approved.',
+                        p_notification_type    => 'success'
+                    );
+                end;
+                ```
+        }
+
+        parameter SUSPENSE_TXN_ID (
+            description: Suspense transaction identifier from retrieve_suspense_data
+            value {
+                dataType: varchar2
+            }
+        )
+
+        parameter PROPOSED_ACCOUNT (
+            description: Proposed correcting natural account combination
+            value {
+                dataType: varchar2
+            }
+        )
+
+        parameter PROPOSED_AMOUNT (
+            description: Proposed correction amount
+            value {
+                dataType: number
+            }
+        )
+
+        parameter RATIONALE (
+            description: Explanation of why this correction is being proposed
+            value {
+                dataType: clob
+            }
+        )
+
+    )
+
+    tool draft-period-action-request (
+        name: draft_period_action_request
+        type: executeServersideCode
+        executionPoint: onDemand
+        description:
+            ```
+            Use ONLY when the user explicitly asks to request opening a period, closing a period, or running Create Accounting for a specific ledger and period. This NEVER posts to Fusion - it only creates a pending request that a human must separately approve before anything is sent to Fusion.
+            ```
+        userApproval {
+            requiresConfirmation: true
+            message: This will create a pending period-action request for human approval. It will not be sent to Fusion until approved. Continue?
+        }
+        settings {
+            language: plsql
+            plsqlCode:
+                ```plsql
+                declare
+                    l_proposed_action_id number;
+                begin
+                    l_proposed_action_id := fac_ai_tool_api_pkg.propose_period_action(
+                        p_ledger_name      => :LEDGER_NAME,
+                        p_period_name      => :PERIOD_NAME,
+                        p_requested_action => :REQUESTED_ACTION,
+                        p_rationale        => :RATIONALE,
+                        p_created_by       => v('APP_USER')
+                    );
+
+                    apex_ai.set_tool_result(
+                        p_result               => 'PROPOSAL_CREATED',
+                        p_notification_message => 'Draft period-action request #' || l_proposed_action_id ||
+                                                   ' saved for human review. It will not reach Fusion until approved.',
+                        p_notification_type    => 'success'
+                    );
+                end;
+                ```
+        }
+
+        parameter LEDGER_NAME (
+            description: Ledger name for this period action
+            value {
+                dataType: varchar2
+            }
+        )
+
+        parameter PERIOD_NAME (
+            description: Period name for this period action (e.g. AUG-25)
+            value {
+                dataType: varchar2
+            }
+        )
+
+        parameter REQUESTED_ACTION (
+            description: The requested action
+            value {
+                dataType: varchar2
+            }
+            validation {
+                allowedValues: "[\"PERIOD_OPEN\",\"PERIOD_CLOSE\",\"CREATE_ACCOUNTING\"]"
+            }
+        )
+
+        parameter RATIONALE (
+            description: Explanation of why this action is being requested
+            value {
+                dataType: clob
+            }
+        )
+
+    )
+
+    comments {
+        comments:
+            ```
+            Single agent, tool-based routing per the plan: each Oracle AI
+            capability the user wants is exposed as a described tool with
+            executionPoint:onDemand, so the model's own tool selection acts
+            as the router rather than a hand-built dispatcher. Phase 2
+            adds ask-oci-genai-agent / ask-fusion-ai-agent-studio tools
+            (see the phase-2-* build options) once those backends are
+            actually provisioned - deliberately not stubbed out yet.
+            settings{} shape for tool follows the skill's own MANDATORY
+            output templates in ai-agents.ai-tools.*.md; the raw grammar
+            projection in assets/grammar/apexlang.ebnf does not show this
+            shape explicitly (only type/executionPoint as open strings) -
+            re-confirm with live compiler-truth tooling once available.
+            ```
+    }
+
+)

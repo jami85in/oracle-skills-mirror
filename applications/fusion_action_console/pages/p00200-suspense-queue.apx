@@ -1,0 +1,213 @@
+page 200 (
+    name: Suspense Queue
+    alias: SUSPENSE-QUEUE
+    title: Suspense Queue
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Review suspense-posted transactions. Open a row to see the AI's read-only analysis and, if you agree, draft a correction proposal for human approval before anything is sent to Fusion.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: REGION_POSITION_01
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region suspense-transactions (
+        name: Suspense Transactions
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select suspense_txn_id,
+                       ledger_name,
+                       period_name,
+                       suspense_account,
+                       entered_amount,
+                       currency_code,
+                       source_system,
+                       reference_description,
+                       posted_date
+                  from fac_suspense_transaction
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 210
+                items: {
+                    P210_SUSPENSE_TXN_ID: #SUSPENSE_TXN_ID#
+                }
+                clearCache: 210
+            }
+            linkIcon: <span role="img" aria-label="Review" class="fa fa-search" title="Review"></span>
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No suspense-posted transactions found.
+        }
+
+        column SUSPENSE_TXN_ID (
+            type: plainText
+            heading {
+                heading: Suspense Txn Id
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column LEDGER_NAME (
+            type: plainText
+            heading {
+                heading: Ledger
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column PERIOD_NAME (
+            type: plainText
+            heading {
+                heading: Period
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column SUSPENSE_ACCOUNT (
+            type: plainText
+            heading {
+                heading: Suspense Account
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column ENTERED_AMOUNT (
+            type: plainText
+            heading {
+                heading: Amount
+                alignment: end
+            }
+            layout {
+                sequence: 50
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G990D00
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column CURRENCY_CODE (
+            type: plainText
+            heading {
+                heading: Currency
+            }
+            layout {
+                sequence: 60
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column SOURCE_SYSTEM (
+            type: plainText
+            heading {
+                heading: Source
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column REFERENCE_DESCRIPTION (
+            type: plainText
+            heading {
+                heading: Reference
+            }
+            layout {
+                sequence: 80
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column POSTED_DATE (
+            type: plainText
+            heading {
+                heading: Posted Date
+            }
+            layout {
+                sequence: 90
+            }
+            appearance {
+                formatMask: DD-MON-YYYY
+            }
+            source {
+                dataType: DATE
+            }
+        )
+
+    )
+
+)

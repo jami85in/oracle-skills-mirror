@@ -1,0 +1,105 @@
+taskDefinition SUSPENSE_CORRECTION_APPROVAL (
+    name: Suspense Correction Approval
+    type: approval
+    task {
+        subject: Suspense Correction Approval Required
+    }
+    source {
+        type: sqlQuery
+        sqlQuery: select * from fac_proposed_action where proposed_action_id = :APEX$TASK_PK
+    }
+    advanced {
+        detailsPage: {
+            page: 101
+            items: {
+                P101_TASK_ID: &TASK_ID.
+            }
+            clearCache: 101
+            action: resetPagination
+        }
+    }
+
+    parameter PROPOSED_ACTION_ID (
+        label {
+            label: Proposed Action Id
+        }
+    )
+
+    action apply-correction (
+        name: Apply Correction
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    fac_approval_guard_pkg.handle_approved(
+                        p_proposed_action_id   => :APEX$TASK_PK,
+                        p_apex_task_id         => null,
+                        p_task_definition_name => 'SUSPENSE_CORRECTION_APPROVAL',
+                        p_approver_username    => :APEX$TASK_OWNER,
+                        p_approval_comments    => null
+                    );
+                end;
+                ```
+        }
+        execution {
+            onEvent: complete
+            outcome: approved
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Correction approved and submitted for execution.
+        }
+    )
+
+    action reject-correction (
+        name: Reject Correction
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    fac_approval_guard_pkg.handle_rejected(
+                        p_proposed_action_id   => :APEX$TASK_PK,
+                        p_apex_task_id         => null,
+                        p_task_definition_name => 'SUSPENSE_CORRECTION_APPROVAL',
+                        p_approver_username    => :APEX$TASK_OWNER,
+                        p_approval_comments    => null
+                    );
+                end;
+                ```
+        }
+        execution {
+            onEvent: complete
+            outcome: rejected
+            sequence: 20
+        }
+        successMessage {
+            successMessage: Correction rejected. Nothing was sent to Fusion.
+        }
+    )
+
+    participant (
+        value {
+            type: expression
+            plsqlExpression: fac_action_stage_pkg.get_approvers(:APEX$TASK_PK)
+        }
+    )
+
+    comments {
+        comments:
+            ```
+            The mandatory human-confirmation gate for suspense corrections.
+            Never add a page process or dynamic action that calls
+            fac_fusion_write_pkg or fac_approval_guard_pkg directly - this
+            task definition's onEvent:complete actions are the only
+            allowed entry point. p_apex_task_id and p_approval_comments
+            are passed as null pending confirmation of the real
+            :APEX$TASK_* bind names for APEX's internal task id and the
+            approver's comment (only :APEX$TASK_PK and :APEX$TASK_OWNER
+            are confirmed from a working example) - wire these in once
+            confirmed via compiler-truth tooling or a proven import.
+            ```
+    }
+
+)

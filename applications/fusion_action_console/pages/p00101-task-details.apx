@@ -1,0 +1,641 @@
+/*
+Lean adaptation of the skill's task-definition-task-details proven example.
+Dropped delegate/renew/cancel-task/priority/due-date/invite-participant/
+request-info/submit-info/edit-parameter regions and processes - this
+console's tasks only ever end in Approve or Reject, done from the My
+Approvals list (page 100) via its proven a.approve/a.reject wiring, not
+from this page. This page is read-only review context plus comments and
+history, per the guardrail: "Do not add custom processes or new page
+items beyond the predefined template. If extra logic or data is required,
+implement it in the task definition action or backend package instead" -
+the one addition here (the proposed-action region) is display-only.
+*/
+page 101 (
+    name: Task Details
+    title: Task Details
+    alias: TASK-DETAILS
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/drawer
+        templateOptions: [
+            #DEFAULT#
+            js-dialog-class-t-Drawer--pullOutEnd
+        ]
+    }
+    dialog {
+        resizable: false
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    advanced {
+        enableDuplicatePageSubmissions: false
+    }
+
+    region subject (
+        name: Subject
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select task_id,
+                       task_type,
+                       task_def_name,
+                       subject,
+                       initiator,
+                       actual_owner,
+                       priority,
+                       due_on,
+                       due_in,
+                       due_code,
+                       state_code,
+                       is_completed,
+                       outcome,
+                       created_on,
+                       created_ago,
+                       badge_text,
+                       badge_state
+                  from table ( apex_human_task.get_tasks (
+                                   p_context => 'SINGLE_TASK',
+                                   p_task_id => :P101_TASK_ID ) );
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--noUI
+                t-Region--scrollBody
+            ]
+        }
+        accessibility {
+            landmarkType: region
+        }
+        componentAppearance {
+            display: partial
+        }
+        title {
+            title: &SUBJECT.
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                <strong>&TASK_DEF_NAME!HTML.</strong>
+                {if INITIATOR/}
+                    <span role="separator" aria-label="&middot;"> &middot; </span>
+                    &{APEX.TASK.INITIATED_BY_USER_SINCE 0=&INITIATOR!HTML. 1=&CREATED_AGO.}.
+                {endif/}
+                {if OUTCOME/}
+                    <span role="separator" aria-label="&middot;"> &middot; </span>
+                    &OUTCOME.
+                {endif/}
+                ```
+        }
+        plugin-badge {
+            displayBadge: true
+            label: State
+            value: BADGE_TEXT
+            state: BADGE_STATE
+            size: medium
+            columnWidth: auto
+        }
+
+        column TASK_ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: TASK_ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column TASK_TYPE (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: TASK_TYPE
+                dataType: varchar2
+            }
+        )
+
+        column TASK_DEF_NAME (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: TASK_DEF_NAME
+                dataType: varchar2
+            }
+        )
+
+        column SUBJECT (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: SUBJECT
+                dataType: varchar2
+            }
+        )
+
+        column INITIATOR (
+            layout {
+                sequence: 50
+            }
+            source {
+                databaseColumn: INITIATOR
+                dataType: varchar2
+            }
+        )
+
+        column ACTUAL_OWNER (
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: ACTUAL_OWNER
+                dataType: varchar2
+            }
+        )
+
+        column PRIORITY (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: PRIORITY
+                dataType: number
+            }
+        )
+
+        column DUE_ON (
+            layout {
+                sequence: 80
+            }
+            source {
+                databaseColumn: DUE_ON
+                dataType: timestampWithTimeZone
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column DUE_IN (
+            layout {
+                sequence: 90
+            }
+            source {
+                databaseColumn: DUE_IN
+                dataType: varchar2
+            }
+        )
+
+        column DUE_CODE (
+            layout {
+                sequence: 100
+            }
+            source {
+                databaseColumn: DUE_CODE
+                dataType: varchar2
+            }
+        )
+
+        column STATE_CODE (
+            layout {
+                sequence: 110
+            }
+            source {
+                databaseColumn: STATE_CODE
+                dataType: varchar2
+            }
+        )
+
+        column IS_COMPLETED (
+            layout {
+                sequence: 120
+            }
+            source {
+                databaseColumn: IS_COMPLETED
+                dataType: varchar2
+            }
+        )
+
+        column OUTCOME (
+            layout {
+                sequence: 130
+            }
+            source {
+                databaseColumn: OUTCOME
+                dataType: varchar2
+            }
+        )
+
+        column CREATED_ON (
+            layout {
+                sequence: 140
+            }
+            source {
+                databaseColumn: CREATED_ON
+                dataType: timestampWithTimeZone
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column CREATED_AGO (
+            layout {
+                sequence: 150
+            }
+            source {
+                databaseColumn: CREATED_AGO
+                dataType: varchar2
+            }
+        )
+
+        column BADGE_TEXT (
+            layout {
+                sequence: 160
+            }
+            source {
+                databaseColumn: BADGE_TEXT
+                dataType: varchar2
+            }
+        )
+
+        column BADGE_STATE (
+            layout {
+                sequence: 170
+            }
+            source {
+                databaseColumn: BADGE_STATE
+                dataType: varchar2
+            }
+        )
+
+    )
+
+    region proposed-action (
+        name: Proposed Action
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select pa.proposed_action_id,
+                       pa.action_type,
+                       pa.fusion_module,
+                       pa.status,
+                       pa.proposed_payload,
+                       pa.ai_reasoning,
+                       pa.ai_evidence,
+                       pa.confidence_score,
+                       pa.created_by,
+                       pa.created_at
+                  from apex_task_parameters tp
+                  join fac_proposed_action pa
+                    on pa.proposed_action_id = to_number(tp.param_value)
+                 where tp.task_id = :P101_TASK_ID
+                   and tp.param_static_id = 'PROPOSED_ACTION_ID'
+                ```
+            pageItemsToSubmit: P101_TASK_ID
+        }
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--scrollBody
+            ]
+        }
+        accessibility {
+            landmarkType: region
+        }
+        componentAppearance {
+            display: report
+        }
+        title {
+            advancedFormatting: false
+            column: ACTION_TYPE
+        }
+        subtitle {
+            advancedFormatting: false
+            column: STATUS
+        }
+
+        column PROPOSED_ACTION_ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: PROPOSED_ACTION_ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column ACTION_TYPE (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: ACTION_TYPE
+                dataType: varchar2
+            }
+        )
+
+        column FUSION_MODULE (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: FUSION_MODULE
+                dataType: varchar2
+            }
+        )
+
+        column STATUS (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: STATUS
+                dataType: varchar2
+            }
+        )
+
+        column PROPOSED_PAYLOAD (
+            layout {
+                sequence: 50
+            }
+            source {
+                databaseColumn: PROPOSED_PAYLOAD
+                dataType: clob
+            }
+        )
+
+        column AI_REASONING (
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: AI_REASONING
+                dataType: clob
+            }
+        )
+
+        column AI_EVIDENCE (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: AI_EVIDENCE
+                dataType: clob
+            }
+        )
+
+        column CONFIDENCE_SCORE (
+            layout {
+                sequence: 80
+            }
+            source {
+                databaseColumn: CONFIDENCE_SCORE
+                dataType: number
+            }
+        )
+
+        column CREATED_BY (
+            layout {
+                sequence: 90
+            }
+            source {
+                databaseColumn: CREATED_BY
+                dataType: varchar2
+            }
+        )
+
+        column CREATED_AT (
+            layout {
+                sequence: 100
+            }
+            source {
+                databaseColumn: CREATED_AT
+                dataType: timestampWithTimeZone
+            }
+        )
+
+    )
+
+    region comments (
+        name: Comments
+        type: themeTemplateComponent/comments
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select apex_string.get_initials(created_by) as user_initials,
+                       'u-color-'||ora_hash(created_by,45)  as user_css_class,
+                       created_by                           as user_name,
+                       text                                 as comment_text,
+                       created_on                           as comment_date
+                  from apex_task_comments
+                 where task_id = :P101_TASK_ID
+                 order by created_on desc
+                ```
+            pageItemsToSubmit: P101_TASK_ID
+        }
+        layout {
+            sequence: 30
+            slot: BODY
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                js-useLocalStorage
+                t-Region--scrollBody
+            ]
+            renderComponents: belowContent
+        }
+        accessibility {
+            landmarkType: region
+        }
+        componentAppearance {
+            display: report
+        }
+        title {
+            advancedFormatting: false
+            column: USER_NAME
+        }
+        body {
+            advancedFormatting: false
+            column: COMMENT_TEXT
+        }
+        subtitle {
+            advancedFormatting: false
+            column: COMMENT_DATE
+        }
+        plugin-avatar {
+            avatarType: initials
+            avatarInitials: USER_INITIALS
+            avatarDescription: &USER_NAME.
+            avatarShape: circular
+            avatarSize: medium
+            avatarCssClasses: &USER_CSS_CLASS.
+        }
+        messages {
+            whenNoDataFound: No Comments
+            noDataFoundIcon: fa-comments-o fa-lg
+        }
+
+        column USER_INITIALS (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: USER_INITIALS
+                dataType: varchar2
+            }
+        )
+
+        column USER_CSS_CLASS (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: USER_CSS_CLASS
+                dataType: varchar2
+            }
+        )
+
+        column USER_NAME (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: USER_NAME
+                dataType: varchar2
+            }
+            accessibility {
+                valueIdentifiesRow: true
+            }
+        )
+
+        column COMMENT_TEXT (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: COMMENT_TEXT
+                dataType: varchar2
+            }
+        )
+
+        column COMMENT_DATE (
+            layout {
+                sequence: 50
+            }
+            source {
+                databaseColumn: COMMENT_DATE
+                dataType: date
+            }
+            accessibility {
+                valueIdentifiesRow: true
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+    )
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 40
+            slot: REGION_POSITION_03
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P101_TASK_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        sessionState {
+            storage: request
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            encryptSessionState: false
+        }
+    )
+
+    button close (
+        buttonName: CLOSE
+        label: Close
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: CLOSE
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: triggerAction
+            executeValidations: false
+        }
+
+        triggerAction native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+            }
+        )
+
+    )
+
+    comments {
+        comments:
+            ```
+            Read-only by design - Approve/Reject happen from the My
+            Approvals list (page 100), not here, to stay on the fully
+            proven a.approve/a.reject dynamicAction mechanism rather than
+            an unverified approve/reject wiring on this dialog page.
+            proposed-action region joins apex_task_parameters to
+            fac_proposed_action via the PROPOSED_ACTION_ID task parameter
+            declared on both taskDefinitions - confirm this auto-populates
+            from the source query's matching column once a live workspace
+            is available.
+            ```
+    }
+
+)

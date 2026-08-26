@@ -1,0 +1,257 @@
+page 300 (
+    name: GL Period Dashboard
+    alias: GL-PERIOD-DASHBOARD
+    title: GL Period Dashboard
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Read-only view of General Ledger period status by ledger. Use the AI Assistant to ask for a close-readiness summary, or draft an Open/Close/Create Accounting request for human approval.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: REGION_POSITION_01
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region period-kpis (
+        name: Period Status Summary
+        type: themeTemplateComponent/metricCard
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 1 as id, 'Open Periods' as title,
+                       to_char(count(*)) as metric, 'Across all ledgers' as meta
+                  from fac_gl_period_status
+                 where period_status = 'Open'
+                union all
+                select 2, 'Closed Periods',
+                       to_char(count(*)), 'Across all ledgers'
+                  from fac_gl_period_status
+                 where period_status = 'Closed'
+                union all
+                select 3, 'Future Enterable',
+                       to_char(count(*)), 'Not yet open'
+                  from fac_gl_period_status
+                 where period_status = 'Future Enterable'
+                union all
+                select 4, 'Close Pending / Other',
+                       to_char(count(*)), 'Needs attention'
+                  from fac_gl_period_status
+                 where period_status not in ('Open','Closed','Future Enterable')
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            title: &TITLE.
+            metric: &METRIC.
+            meta: &META.
+            layout: 4Columns
+        }
+
+        column ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column TITLE (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: TITLE
+                dataType: varchar2
+            }
+        )
+
+        column METRIC (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: METRIC
+                dataType: varchar2
+            }
+        )
+
+        column META (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: META
+                dataType: varchar2
+            }
+        )
+    )
+
+    region period-status-report (
+        name: Period Status by Ledger
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ledger_name,
+                       period_name,
+                       period_status,
+                       period_start_date,
+                       period_end_date,
+                       last_synced_at
+                  from fac_gl_period_status
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: BODY
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        messages {
+            whenNoDataFound: No period status data found - run demo-seed-data.sql, or wire up Phase 2 Fusion connectivity.
+        }
+
+        column LEDGER_NAME (
+            type: plainText
+            heading {
+                heading: Ledger
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column PERIOD_NAME (
+            type: plainText
+            heading {
+                heading: Period
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column PERIOD_STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column PERIOD_START_DATE (
+            type: plainText
+            heading {
+                heading: Start Date
+            }
+            layout {
+                sequence: 40
+            }
+            appearance {
+                formatMask: DD-MON-YYYY
+            }
+            source {
+                dataType: DATE
+            }
+        )
+
+        column PERIOD_END_DATE (
+            type: plainText
+            heading {
+                heading: End Date
+            }
+            layout {
+                sequence: 50
+            }
+            appearance {
+                formatMask: DD-MON-YYYY
+            }
+            source {
+                dataType: DATE
+            }
+        )
+
+        column LAST_SYNCED_AT (
+            type: plainText
+            heading {
+                heading: Last Synced
+            }
+            layout {
+                sequence: 60
+            }
+            appearance {
+                formatMask: DD-MON-YYYY HH24:MI
+            }
+            source {
+                dataType: TIMESTAMP
+            }
+        )
+
+    )
+
+    comments {
+        comments:
+            ```
+            Read-only for v1 - the Period Action Request/Requests pages
+            (planned 310/320, same pattern as 210/220 for suspense) are
+            not yet built; use the AI Assistant's draft_period_action_request
+            tool in the meantime, then review/approve via My Approvals.
+            ```
+    }
+
+)

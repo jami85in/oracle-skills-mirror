@@ -1,0 +1,495 @@
+page 210 (
+    name: Suspense Review & Correction
+    alias: SUSPENSE-REVIEW
+    title: Suspense Review & Correction
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Review this suspense transaction and any AI-drafted correction proposals. Select a drafted proposal below, then Submit for Approval to route it to a human approver - nothing is sent to Fusion until it is approved.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: REGION_POSITION_01
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region suspense-detail (
+        name: Suspense Transaction
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select suspense_txn_id,
+                       ledger_name,
+                       period_name,
+                       suspense_account,
+                       entered_amount,
+                       currency_code,
+                       source_system,
+                       reference_description,
+                       posted_date
+                  from fac_suspense_transaction
+                 where suspense_txn_id = :P210_SUSPENSE_TXN_ID
+                ```
+            pageItemsToSubmit: P210_SUSPENSE_TXN_ID
+        }
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--scrollBody
+            ]
+        }
+        accessibility {
+            landmarkType: region
+        }
+        componentAppearance {
+            display: partial
+        }
+        title {
+            advancedFormatting: false
+            column: SUSPENSE_TXN_ID
+        }
+        subtitle {
+            advancedFormatting: false
+            column: REFERENCE_DESCRIPTION
+        }
+
+        column SUSPENSE_TXN_ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: SUSPENSE_TXN_ID
+                dataType: varchar2
+                primaryKey: true
+            }
+        )
+
+        column LEDGER_NAME (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: LEDGER_NAME
+                dataType: varchar2
+            }
+        )
+
+        column PERIOD_NAME (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: PERIOD_NAME
+                dataType: varchar2
+            }
+        )
+
+        column SUSPENSE_ACCOUNT (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: SUSPENSE_ACCOUNT
+                dataType: varchar2
+            }
+        )
+
+        column ENTERED_AMOUNT (
+            layout {
+                sequence: 50
+            }
+            source {
+                databaseColumn: ENTERED_AMOUNT
+                dataType: number
+            }
+            appearance {
+                formatMask: 999G999G999G990D00
+            }
+        )
+
+        column CURRENCY_CODE (
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: CURRENCY_CODE
+                dataType: varchar2
+            }
+        )
+
+        column SOURCE_SYSTEM (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: SOURCE_SYSTEM
+                dataType: varchar2
+            }
+        )
+
+        column REFERENCE_DESCRIPTION (
+            layout {
+                sequence: 80
+            }
+            source {
+                databaseColumn: REFERENCE_DESCRIPTION
+                dataType: varchar2
+            }
+        )
+
+        column POSTED_DATE (
+            layout {
+                sequence: 90
+            }
+            source {
+                databaseColumn: POSTED_DATE
+                dataType: date
+            }
+            appearance {
+                formatMask: DD-MON-YYYY
+            }
+        )
+
+    )
+
+    region proposals-for-txn (
+        name: Draft Correction Proposals
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select proposed_action_id,
+                       json_value(source_reference, '$.suspenseTxnId')   as suspense_txn_id,
+                       json_value(proposed_payload, '$.proposedAccount') as proposed_account,
+                       json_value(proposed_payload, '$.proposedAmount')  as proposed_amount,
+                       ai_reasoning,
+                       confidence_score,
+                       status,
+                       created_by,
+                       created_at
+                  from fac_proposed_action
+                 where action_type = 'SUSPENSE_CORRECTION'
+                   and json_value(source_reference, '$.suspenseTxnId') = :P210_SUSPENSE_TXN_ID
+                ```
+            pageItemsToSubmit: P210_SUSPENSE_TXN_ID
+        }
+        layout {
+            sequence: 30
+            slot: BODY
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 210
+                items: {
+                    P210_SUSPENSE_TXN_ID: #SUSPENSE_TXN_ID#
+                    P210_PROPOSED_ACTION_ID: #PROPOSED_ACTION_ID#
+                }
+                clearCache: 210
+            }
+            linkIcon: <span role="img" aria-label="Select" class="fa fa-check-square-o" title="Select for submission"></span>
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        messages {
+            whenNoDataFound: No draft proposals yet - ask the AI Assistant to draft one from a suspense transaction.
+        }
+
+        column PROPOSED_ACTION_ID (
+            type: hidden
+            heading {
+                heading: Proposed Action Id
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column SUSPENSE_TXN_ID (
+            type: hidden
+            heading {
+                heading: Suspense Txn Id
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column PROPOSED_ACCOUNT (
+            type: plainText
+            heading {
+                heading: Proposed Account
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column PROPOSED_AMOUNT (
+            type: plainText
+            heading {
+                heading: Proposed Amount
+                alignment: end
+            }
+            layout {
+                sequence: 40
+                columnAlignment: end
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column AI_REASONING (
+            type: plainText
+            heading {
+                heading: AI Reasoning
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column CONFIDENCE_SCORE (
+            type: plainText
+            heading {
+                heading: Confidence
+            }
+            layout {
+                sequence: 60
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Drafted By
+            }
+            layout {
+                sequence: 80
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column CREATED_AT (
+            type: plainText
+            heading {
+                heading: Drafted At
+            }
+            layout {
+                sequence: 90
+            }
+            appearance {
+                formatMask: DD-MON-YYYY HH24:MI
+            }
+            source {
+                dataType: TIMESTAMP
+            }
+        )
+
+    )
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 40
+            slot: BODY
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P210_SUSPENSE_TXN_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        sessionState {
+            storage: request
+        }
+        security {
+            sessionStateProtection: unrestricted
+        }
+    )
+
+    pageItem P210_PROPOSED_ACTION_ID (
+        type: hidden
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        sessionState {
+            storage: request
+        }
+        security {
+            sessionStateProtection: unrestricted
+        }
+    )
+
+    button submit-for-approval (
+        buttonName: SUBMIT_FOR_APPROVAL
+        label: Submit for Approval
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: BODY
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-paper-plane
+        }
+        behavior {
+            requiresConfirmation: true
+            warnOnUnsavedChanges: doNotCheck
+        }
+        confirmation {
+            message: This routes the selected draft to a human approver. Nothing is sent to Fusion until it is approved. Continue?
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P210_PROPOSED_ACTION_ID
+        }
+    )
+
+    process submit-for-approval (
+        name: Submit For Approval
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    fac_action_stage_pkg.submit_for_approval(
+                        p_proposed_action_id => :P210_PROPOSED_ACTION_ID,
+                        p_submitted_by       => v('APP_USER')
+                    );
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Proposal submitted for approval.
+        }
+        serverSideCondition {
+            whenButtonPressed: @submit-for-approval
+        }
+    )
+
+    process create-approval-task (
+        name: Create Approval Task
+        type: humanTaskCreate
+        humanTask {
+            definition: @SUSPENSE_CORRECTION_APPROVAL
+            detailsPkItem: P210_PROPOSED_ACTION_ID
+        }
+        execution {
+            sequence: 20
+        }
+        serverSideCondition {
+            whenButtonPressed: @submit-for-approval
+        }
+
+        parameter PROPOSED_ACTION_ID (
+            value {
+                type: item
+                item: P210_PROPOSED_ACTION_ID
+            }
+        )
+
+    )
+
+    comments {
+        comments:
+            ```
+            Row selection uses a self-redirect link (page 210 to itself)
+            carrying both P210_SUSPENSE_TXN_ID and P210_PROPOSED_ACTION_ID
+            rather than a jQuery-selector dynamicAction, since this is a
+            single-select, not the multi-row list pattern used on page
+            100. submit-for-approval (executeCode) must run before
+            create-approval-task (humanTaskCreate) so the proposal is
+            already PENDING_APPROVAL before the task exists - sequence
+            10/20 enforces that order. Verify the humanTaskCreate
+            parameter-feeding mechanism (vs. auto-mapping from the task
+            definition's own source.sqlQuery column) against a live
+            import - both are plausible from the skill's own examples.
+            ```
+    }
+
+)

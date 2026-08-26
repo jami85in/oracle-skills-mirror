@@ -1,0 +1,27 @@
+genAIService console-genai-primary (
+    name: Fusion Console AI Service
+    provider: ociGenAI
+    endpointUrl {
+        url: "https://inference.generativeai.PENDING-REGION.oci.oraclecloud.com"
+    }
+    authentication {
+        credentials: @fusion-ai-console-oci-cred
+    }
+    appBuilder {
+        usedByAppBuilder: true
+        defaultForNewApps: false
+    }
+    advanced {
+        modelName: PENDING-PHASE-0-CONFIRM-MODEL
+    }
+    comments {
+        comments:
+            ```
+            Placeholder pending Phase 0 confirmation of which LLM backend is
+            actually provisioned (plan Phase 0). provider defaults to ociGenAI
+            per the plan's recommendation - override if a different provider
+            is already contracted. endpointUrl region and advanced.modelName
+            are not real values - fill in once known, then re-validate.
+            ```
+    }
+)

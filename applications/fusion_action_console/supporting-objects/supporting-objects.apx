@@ -1,0 +1,1414 @@
+supportingObject (
+
+    installScript fac-module-registry-tbl (
+        name: FAC_MODULE_REGISTRY table
+        execution {
+            sequence: 10
+        }
+        script {
+            type: table
+            content:
+                ```sql
+                CREATE TABLE fac_module_registry (
+                    module_code             VARCHAR2(30)  NOT NULL,
+                    display_name            VARCHAR2(200) NOT NULL,
+                    read_package_name       VARCHAR2(128),
+                    action_types_supported  VARCHAR2(500),
+                    enabled_flag            VARCHAR2(1)   DEFAULT 'Y' NOT NULL,
+                    CONSTRAINT fac_module_registry_pk PRIMARY KEY (module_code),
+                    CONSTRAINT fac_module_registry_enabled_ck CHECK (enabled_flag IN ('Y','N'))
+                );
+                ```
+        }
+    )
+
+    installScript fac-approver-tbl (
+        name: FAC_APPROVER table
+        execution {
+            sequence: 15
+        }
+        script {
+            type: table
+            content:
+                ```sql
+                CREATE TABLE fac_approver (
+                    module_code   VARCHAR2(30)  NOT NULL,
+                    username      VARCHAR2(128) NOT NULL,
+                    enabled_flag  VARCHAR2(1)   DEFAULT 'Y' NOT NULL,
+                    CONSTRAINT fac_approver_pk PRIMARY KEY (module_code, username),
+                    CONSTRAINT fac_approver_enabled_ck CHECK (enabled_flag IN ('Y','N'))
+                );
+                ```
+        }
+    )
+
+    installScript fac-app-config-tbl (
+        name: FAC_APP_CONFIG table
+        execution {
+            sequence: 20
+        }
+        script {
+            type: table
+            content:
+                ```sql
+                CREATE TABLE fac_app_config (
+                    config_key    VARCHAR2(60)  NOT NULL,
+                    config_value  VARCHAR2(1000),
+                    description   VARCHAR2(500),
+                    CONSTRAINT fac_app_config_pk PRIMARY KEY (config_key)
+                );
+
+                INSERT INTO fac_app_config (config_key, config_value, description) VALUES (
+                    'FUSION_BASE_URL',
+                    'PENDING-PHASE-2-DISCOVERY',
+                    'Base URL of the non-prod Fusion pod, e.g. https://<pod>.fa.<region>.oraclecloud.com - set once confirmed (see plan discovery item #1). fac_fusion_write_pkg refuses to run while this stays PENDING-PHASE-2-DISCOVERY.'
+                );
+                ```
+        }
+    )
+
+    installScript fac-ess-job-registry-tbl (
+        name: FAC_ESS_JOB_REGISTRY table
+        execution {
+            sequence: 30
+        }
+        script {
+            type: table
+            content:
+                ```sql
+                CREATE TABLE fac_ess_job_registry (
+                    job_code            VARCHAR2(60)  NOT NULL,
+                    job_package_name    VARCHAR2(400),
+                    job_def_name        VARCHAR2(200),
+                    parameter_template  VARCHAR2(4000),
+                    transport           VARCHAR2(30)  DEFAULT 'ERPINTEGRATIONS' NOT NULL,
+                    is_confirmed        VARCHAR2(1)   DEFAULT 'N' NOT NULL,
+                    last_verified_at    DATE,
+                    notes               VARCHAR2(4000),
+                    CONSTRAINT fac_ess_job_registry_pk PRIMARY KEY (job_code),
+                    CONSTRAINT fac_ess_job_registry_transport_ck CHECK (transport IN ('ERPINTEGRATIONS','ESS_SCHEDULER_V1')),
+                    CONSTRAINT fac_ess_job_registry_confirmed_ck CHECK (is_confirmed IN ('Y','N'))
+                );
+
+                INSERT INTO fac_ess_job_registry (job_code, notes) VALUES (
+                    'PERIOD_OPEN', 'Pending confirmation - get JobPackageName/JobDefName/parameter order from Scheduled Processes > Process Details in the non-prod pod (plan discovery item #6).'
+                );
+                INSERT INTO fac_ess_job_registry (job_code, notes) VALUES (
+                    'PERIOD_CLOSE', 'Pending confirmation - see plan discovery item #6.'
+                );
+                INSERT INTO fac_ess_job_registry (job_code, notes) VALUES (
+                    'CREATE_ACCOUNTING', 'Pending confirmation - see plan discovery item #6.'
+                );
+                ```
+        }
+    )
+
+    installScript fac-gl-period-status-tbl (
+        name: FAC_GL_PERIOD_STATUS table
+        execution {
+            sequence: 40
+        }
+        script {
+            type: table
+            content:
+                ```sql
+                CREATE TABLE fac_gl_period_status (
+                    ledger_name        VARCHAR2(100) NOT NULL,
+                    period_name        VARCHAR2(30)  NOT NULL,
+                    period_status      VARCHAR2(30)  NOT NULL,
+                    period_start_date  DATE,
+                    period_end_date    DATE,
+                    last_synced_at     TIMESTAMP DEFAULT SYSTIMESTAMP,
+                    CONSTRAINT fac_gl_period_status_pk PRIMARY KEY (ledger_name, period_name)
+                );
+                ```
+        }
+    )
+
+    installScript fac-suspense-transaction-tbl (
+        name: FAC_SUSPENSE_TRANSACTION table
+        execution {
+            sequence: 50
+        }
+        script {
+            type: table
+            content:
+                ```sql
+                CREATE TABLE fac_suspense_transaction (
+                    suspense_txn_id        VARCHAR2(60) NOT NULL,
+                    ledger_name            VARCHAR2(100),
+                    period_name            VARCHAR2(30),
+                    suspense_account       VARCHAR2(100),
+                    entered_amount         NUMBER,
+                    currency_code          VARCHAR2(15),
+                    source_system          VARCHAR2(60),
+                    reference_description  VARCHAR2(1000),
+                    posted_date            DATE,
+                    last_synced_at         TIMESTAMP DEFAULT SYSTIMESTAMP,
+                    CONSTRAINT fac_suspense_transaction_pk PRIMARY KEY (suspense_txn_id)
+                );
+                ```
+        }
+    )
+
+    installScript fac-proposed-action-tbl (
+        name: FAC_PROPOSED_ACTION table
+        execution {
+            sequence: 60
+        }
+        script {
+            type: table
+            content:
+                ```sql
+                CREATE TABLE fac_proposed_action (
+                    proposed_action_id  NUMBER GENERATED ALWAYS AS IDENTITY,
+                    action_type         VARCHAR2(30)  NOT NULL,
+                    fusion_module       VARCHAR2(30)  NOT NULL,
+                    source_reference    CLOB,
+                    proposed_payload    CLOB,
+                    ai_reasoning        CLOB,
+                    ai_evidence         CLOB,
+                    ai_model_info       VARCHAR2(200),
+                    confidence_score    NUMBER(5,2),
+                    status              VARCHAR2(20)  DEFAULT 'PROPOSED' NOT NULL,
+                    created_by          VARCHAR2(128) NOT NULL,
+                    created_at          TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+                    last_updated_by     VARCHAR2(128),
+                    last_updated_at     TIMESTAMP DEFAULT SYSTIMESTAMP,
+                    CONSTRAINT fac_proposed_action_pk PRIMARY KEY (proposed_action_id),
+                    CONSTRAINT fac_proposed_action_type_ck CHECK (action_type IN
+                        ('SUSPENSE_CORRECTION','PERIOD_OPEN','PERIOD_CLOSE','CREATE_ACCOUNTING')),
+                    CONSTRAINT fac_proposed_action_status_ck CHECK (status IN
+                        ('PROPOSED','PENDING_APPROVAL','APPROVED','REJECTED','WITHDRAWN','EXECUTING','EXECUTED','FAILED')),
+                    CONSTRAINT fac_proposed_action_src_json_ck CHECK (source_reference IS JSON),
+                    CONSTRAINT fac_proposed_action_pay_json_ck CHECK (proposed_payload IS JSON),
+                    CONSTRAINT fac_proposed_action_evi_json_ck CHECK (ai_evidence IS JSON)
+                );
+                ```
+        }
+    )
+
+    installScript fac-proposed-action-version-tbl (
+        name: FAC_PROPOSED_ACTION_VERSION table
+        execution {
+            sequence: 70
+        }
+        script {
+            type: table
+            content:
+                ```sql
+                CREATE TABLE fac_proposed_action_version (
+                    version_id           NUMBER GENERATED ALWAYS AS IDENTITY,
+                    proposed_action_id   NUMBER        NOT NULL,
+                    version_no           NUMBER        NOT NULL,
+                    payload_snapshot     CLOB,
+                    reasoning_snapshot   CLOB,
+                    changed_by           VARCHAR2(128) NOT NULL,
+                    changed_at           TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+                    change_reason        VARCHAR2(4000),
+                    CONSTRAINT fac_proposed_action_ver_pk PRIMARY KEY (version_id),
+                    CONSTRAINT fac_pav_action_fk FOREIGN KEY (proposed_action_id)
+                        REFERENCES fac_proposed_action (proposed_action_id),
+                    CONSTRAINT fac_pav_uk UNIQUE (proposed_action_id, version_no)
+                );
+                ```
+        }
+    )
+
+    installScript fac-approval-tbl (
+        name: FAC_APPROVAL table
+        execution {
+            sequence: 80
+        }
+        script {
+            type: table
+            content:
+                ```sql
+                CREATE TABLE fac_approval (
+                    approval_id           NUMBER GENERATED ALWAYS AS IDENTITY,
+                    proposed_action_id    NUMBER        NOT NULL,
+                    apex_task_id          VARCHAR2(60),
+                    task_definition_name  VARCHAR2(128),
+                    outcome               VARCHAR2(20)  NOT NULL,
+                    approver_username     VARCHAR2(128) NOT NULL,
+                    approval_comments     VARCHAR2(4000),
+                    decided_at            TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+                    CONSTRAINT fac_approval_pk PRIMARY KEY (approval_id),
+                    CONSTRAINT fac_approval_action_fk FOREIGN KEY (proposed_action_id)
+                        REFERENCES fac_proposed_action (proposed_action_id),
+                    CONSTRAINT fac_approval_outcome_ck CHECK (outcome IN ('APPROVE','REJECT'))
+                );
+                ```
+        }
+    )
+
+    installScript fac-action-execution-log-tbl (
+        name: FAC_ACTION_EXECUTION_LOG table
+        execution {
+            sequence: 90
+        }
+        script {
+            type: table
+            content:
+                ```sql
+                CREATE TABLE fac_action_execution_log (
+                    execution_id           NUMBER GENERATED ALWAYS AS IDENTITY,
+                    proposed_action_id     NUMBER        NOT NULL,
+                    attempt_no             NUMBER        DEFAULT 1 NOT NULL,
+                    request_timestamp      TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+                    fusion_endpoint        VARCHAR2(500),
+                    request_payload        CLOB,
+                    response_status_code   NUMBER,
+                    response_payload       CLOB,
+                    fusion_ess_request_id  VARCHAR2(100),
+                    result                 VARCHAR2(20),
+                    error_message          VARCHAR2(4000),
+                    executed_by            VARCHAR2(128) NOT NULL,
+                    correlation_id         VARCHAR2(100),
+                    CONSTRAINT fac_action_exec_log_pk PRIMARY KEY (execution_id),
+                    CONSTRAINT fac_ael_action_fk FOREIGN KEY (proposed_action_id)
+                        REFERENCES fac_proposed_action (proposed_action_id),
+                    CONSTRAINT fac_ael_result_ck CHECK (result IN ('SUCCESS','FAILURE','ERROR'))
+                );
+                ```
+        }
+    )
+
+    installScript fac-approval-ctx (
+        name: FAC_APPROVAL_CTX context
+        execution {
+            sequence: 100
+        }
+        script {
+            type: table
+            content:
+                ```sql
+                CREATE OR REPLACE CONTEXT fac_approval_ctx USING fac_approval_guard_pkg;
+                ```
+        }
+    )
+
+    installScript fac-conn-get-pkg-spec (
+        name: FAC_CONN_GET_PKG spec
+        execution {
+            sequence: 110
+        }
+        script {
+            type: packageSpec
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE fac_conn_get_pkg AUTHID DEFINER AS
+                    /* GET-only HTTP helper for outbound Fusion/OCI calls. Cannot issue
+                       a non-GET request - there is no parameter or entry point for a
+                       method or a request body, by design. Safe to grant broadly. */
+                    FUNCTION get_json (
+                        p_url           IN VARCHAR2,
+                        p_credential_id IN VARCHAR2
+                    ) RETURN CLOB;
+                END fac_conn_get_pkg;
+                ```
+        }
+    )
+
+    installScript fac-audit-pkg-spec (
+        name: FAC_AUDIT_PKG spec
+        execution {
+            sequence: 120
+        }
+        script {
+            type: packageSpec
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE fac_audit_pkg AUTHID DEFINER AS
+                    /* Insert-only writer of FAC_APPROVAL and FAC_ACTION_EXECUTION_LOG -
+                       the audit trail for "who approved this" and "what happened when
+                       it was sent to Fusion". */
+                    PROCEDURE record_approval (
+                        p_proposed_action_id    IN NUMBER,
+                        p_apex_task_id          IN VARCHAR2,
+                        p_task_definition_name  IN VARCHAR2,
+                        p_outcome               IN VARCHAR2,
+                        p_approver_username     IN VARCHAR2,
+                        p_approval_comments     IN VARCHAR2 DEFAULT NULL
+                    );
+
+                    PROCEDURE record_execution (
+                        p_proposed_action_id     IN NUMBER,
+                        p_attempt_no             IN NUMBER,
+                        p_fusion_endpoint        IN VARCHAR2,
+                        p_request_payload        IN CLOB,
+                        p_response_status_code   IN NUMBER,
+                        p_response_payload       IN CLOB,
+                        p_fusion_ess_request_id  IN VARCHAR2 DEFAULT NULL,
+                        p_result                 IN VARCHAR2,
+                        p_error_message          IN VARCHAR2 DEFAULT NULL,
+                        p_executed_by            IN VARCHAR2,
+                        p_correlation_id         IN VARCHAR2
+                    );
+                END fac_audit_pkg;
+                ```
+        }
+    )
+
+    installScript fac-ess-job-pkg-spec (
+        name: FAC_ESS_JOB_PKG spec
+        execution {
+            sequence: 130
+        }
+        script {
+            type: packageSpec
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE fac_ess_job_pkg AUTHID DEFINER AS
+                    /* Builds submitESSJobRequest bodies from FAC_ESS_JOB_REGISTRY. Never
+                       makes an HTTP call itself - called only from fac_fusion_write_pkg's
+                       body. Raises if the job code is unknown or not IS_CONFIRMED='Y'. */
+                    FUNCTION build_request_body (
+                        p_job_code   IN VARCHAR2,
+                        p_parameters IN VARCHAR2
+                    ) RETURN CLOB;
+
+                    FUNCTION get_transport (
+                        p_job_code IN VARCHAR2
+                    ) RETURN VARCHAR2;
+                END fac_ess_job_pkg;
+                ```
+        }
+    )
+
+    installScript fac-gl-period-read-pkg-spec (
+        name: FAC_GL_PERIOD_READ_PKG spec
+        execution {
+            sequence: 140
+        }
+        script {
+            type: packageSpec
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE fac_gl_period_read_pkg AUTHID DEFINER AS
+                    /* Read-only GL period status. Phase 1 reads FAC_GL_PERIOD_STATUS
+                       (a local stand-in mirror); Phase 2 repoints this at the real
+                       Fusion accountingPeriodStatusLOV resource via fac_conn_get_pkg -
+                       the signature and every caller stay the same either way. */
+                    FUNCTION get_period_status_json (
+                        p_ledger_name IN VARCHAR2 DEFAULT NULL,
+                        p_period_name IN VARCHAR2 DEFAULT NULL
+                    ) RETURN CLOB;
+                END fac_gl_period_read_pkg;
+                ```
+        }
+    )
+
+    installScript fac-suspense-read-pkg-spec (
+        name: FAC_SUSPENSE_READ_PKG spec
+        execution {
+            sequence: 150
+        }
+        script {
+            type: packageSpec
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE fac_suspense_read_pkg AUTHID DEFINER AS
+                    /* Read-only suspense-posted lines. Phase 1 reads
+                       FAC_SUSPENSE_TRANSACTION (a local stand-in mirror); Phase 2
+                       repoints this at whatever the Fusion team confirms exposes
+                       suspense lines (OTBI/BIP/other - plan discovery item #4). */
+                    FUNCTION get_suspense_lines_json (
+                        p_ledger_name IN VARCHAR2 DEFAULT NULL,
+                        p_period_name IN VARCHAR2 DEFAULT NULL,
+                        p_min_amount  IN NUMBER   DEFAULT NULL
+                    ) RETURN CLOB;
+                END fac_suspense_read_pkg;
+                ```
+        }
+    )
+
+    installScript fac-action-stage-pkg-spec (
+        name: FAC_ACTION_STAGE_PKG spec
+        execution {
+            sequence: 160
+        }
+        script {
+            type: packageSpec
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE fac_action_stage_pkg AUTHID DEFINER AS
+                    /* Only writer of FAC_PROPOSED_ACTION / FAC_PROPOSED_ACTION_VERSION.
+                       Contains no reference to fac_fusion_write_pkg or to any HTTP
+                       call - this package can only ever create or revise a proposal,
+                       never push it to Fusion. */
+
+                    FUNCTION create_proposal (
+                        p_action_type      IN VARCHAR2,
+                        p_fusion_module    IN VARCHAR2,
+                        p_source_reference IN CLOB,
+                        p_proposed_payload IN CLOB,
+                        p_ai_reasoning     IN CLOB,
+                        p_ai_evidence      IN CLOB DEFAULT NULL,
+                        p_ai_model_info    IN VARCHAR2 DEFAULT NULL,
+                        p_confidence_score IN NUMBER DEFAULT NULL,
+                        p_created_by       IN VARCHAR2
+                    ) RETURN NUMBER;
+
+                    PROCEDURE revise_proposal (
+                        p_proposed_action_id IN NUMBER,
+                        p_proposed_payload   IN CLOB,
+                        p_reasoning          IN CLOB,
+                        p_changed_by         IN VARCHAR2,
+                        p_change_reason      IN VARCHAR2 DEFAULT NULL
+                    );
+
+                    PROCEDURE submit_for_approval (
+                        p_proposed_action_id IN NUMBER,
+                        p_submitted_by       IN VARCHAR2
+                    );
+
+                    PROCEDURE withdraw_proposal (
+                        p_proposed_action_id IN NUMBER,
+                        p_withdrawn_by       IN VARCHAR2
+                    );
+
+                    PROCEDURE mark_decision (
+                        p_proposed_action_id IN NUMBER,
+                        p_new_status         IN VARCHAR2
+                    );
+
+                    FUNCTION get_proposal_status (
+                        p_proposed_action_id IN NUMBER
+                    ) RETURN VARCHAR2;
+
+                    FUNCTION get_approvers (
+                        p_proposed_action_id IN NUMBER
+                    ) RETURN VARCHAR2;
+
+                END fac_action_stage_pkg;
+                ```
+        }
+    )
+
+    installScript fac-ai-tool-api-pkg-spec (
+        name: FAC_AI_TOOL_API_PKG spec
+        execution {
+            sequence: 170
+        }
+        script {
+            type: packageSpec
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE fac_ai_tool_api_pkg AUTHID DEFINER AS
+                    /* The literal allow-list the AI agent's tools are wired to. Every
+                       procedure/function here only reads or stages - none can reach
+                       fac_fusion_write_pkg or fac_approval_guard_pkg, directly or
+                       indirectly. If this package is ever the AI's only granted
+                       package, that is by design. */
+
+                    FUNCTION get_period_status (
+                        p_ledger_name IN VARCHAR2 DEFAULT NULL,
+                        p_period_name IN VARCHAR2 DEFAULT NULL
+                    ) RETURN CLOB;
+
+                    FUNCTION get_suspense_lines (
+                        p_ledger_name IN VARCHAR2 DEFAULT NULL,
+                        p_period_name IN VARCHAR2 DEFAULT NULL,
+                        p_min_amount  IN NUMBER DEFAULT NULL
+                    ) RETURN CLOB;
+
+                    FUNCTION propose_suspense_correction (
+                        p_suspense_txn_id  IN VARCHAR2,
+                        p_proposed_account IN VARCHAR2,
+                        p_proposed_amount  IN NUMBER,
+                        p_rationale        IN CLOB,
+                        p_evidence_json    IN CLOB DEFAULT NULL,
+                        p_created_by       IN VARCHAR2
+                    ) RETURN NUMBER;
+
+                    FUNCTION propose_period_action (
+                        p_ledger_name      IN VARCHAR2,
+                        p_period_name      IN VARCHAR2,
+                        p_requested_action IN VARCHAR2,
+                        p_rationale        IN CLOB,
+                        p_evidence_json    IN CLOB DEFAULT NULL,
+                        p_created_by       IN VARCHAR2
+                    ) RETURN NUMBER;
+
+                    FUNCTION get_proposal_status (
+                        p_proposed_action_id IN NUMBER
+                    ) RETURN VARCHAR2;
+
+                END fac_ai_tool_api_pkg;
+                ```
+        }
+    )
+
+    installScript fac-fusion-write-pkg-spec (
+        name: FAC_FUSION_WRITE_PKG spec
+        execution {
+            sequence: 180
+        }
+        script {
+            type: packageSpec
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE fac_fusion_write_pkg AUTHID DEFINER AS
+                    /* The ONLY package that may call Fusion's write APIs. The public
+                       spec exposes exactly one procedure taking one NUMBER - no
+                       caller can supply an endpoint, method, or payload. All
+                       HTTP/job logic is private in the body. Every entry checks
+                       FAC_APPROVAL_CTX, which only fac_approval_guard_pkg may set
+                       (see the CREATE CONTEXT ... USING fac_approval_guard_pkg
+                       install script). EXECUTE on this package must never be
+                       granted to whatever role the AI tool layer runs as. */
+                    PROCEDURE execute_approved_action (
+                        p_proposed_action_id IN NUMBER
+                    );
+                END fac_fusion_write_pkg;
+                ```
+        }
+    )
+
+    installScript fac-approval-guard-pkg-spec (
+        name: FAC_APPROVAL_GUARD_PKG spec
+        execution {
+            sequence: 190
+        }
+        script {
+            type: packageSpec
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE fac_approval_guard_pkg AUTHID DEFINER AS
+                    /* The only package permitted to arm FAC_APPROVAL_CTX (enforced
+                       by the database itself via CREATE CONTEXT fac_approval_ctx
+                       USING fac_approval_guard_pkg). Called only from the
+                       taskDefinition approval/rejection actions on task
+                       completion - never from a page process or AJAX callback. */
+
+                    PROCEDURE handle_approved (
+                        p_proposed_action_id    IN NUMBER,
+                        p_apex_task_id          IN VARCHAR2,
+                        p_task_definition_name  IN VARCHAR2,
+                        p_approver_username     IN VARCHAR2,
+                        p_approval_comments     IN VARCHAR2 DEFAULT NULL
+                    );
+
+                    PROCEDURE handle_rejected (
+                        p_proposed_action_id    IN NUMBER,
+                        p_apex_task_id          IN VARCHAR2,
+                        p_task_definition_name  IN VARCHAR2,
+                        p_approver_username     IN VARCHAR2,
+                        p_approval_comments     IN VARCHAR2 DEFAULT NULL
+                    );
+
+                END fac_approval_guard_pkg;
+                ```
+        }
+    )
+
+    installScript fac-conn-get-pkg-body (
+        name: FAC_CONN_GET_PKG body
+        execution {
+            sequence: 200
+        }
+        script {
+            type: packageBody
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE BODY fac_conn_get_pkg AS
+
+                    FUNCTION get_json (
+                        p_url           IN VARCHAR2,
+                        p_credential_id IN VARCHAR2
+                    ) RETURN CLOB
+                    IS
+                        l_response CLOB;
+                    BEGIN
+                        apex_web_service.g_request_headers.delete;
+                        apex_web_service.g_request_headers(1).name  := 'Accept';
+                        apex_web_service.g_request_headers(1).value := 'application/json';
+
+                        l_response := apex_web_service.make_rest_request(
+                            p_url                  => p_url,
+                            p_http_method          => 'GET',
+                            p_credential_static_id => p_credential_id
+                        );
+
+                        IF apex_web_service.g_status_code NOT BETWEEN 200 AND 299 THEN
+                            raise_application_error(-20010,
+                                'fac_conn_get_pkg.get_json: Fusion GET failed with HTTP ' ||
+                                apex_web_service.g_status_code || ' for ' || p_url);
+                        END IF;
+
+                        RETURN l_response;
+                    END get_json;
+
+                END fac_conn_get_pkg;
+                ```
+        }
+    )
+
+    installScript fac-audit-pkg-body (
+        name: FAC_AUDIT_PKG body
+        execution {
+            sequence: 210
+        }
+        script {
+            type: packageBody
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE BODY fac_audit_pkg AS
+
+                    PROCEDURE record_approval (
+                        p_proposed_action_id    IN NUMBER,
+                        p_apex_task_id          IN VARCHAR2,
+                        p_task_definition_name  IN VARCHAR2,
+                        p_outcome               IN VARCHAR2,
+                        p_approver_username     IN VARCHAR2,
+                        p_approval_comments     IN VARCHAR2 DEFAULT NULL
+                    ) IS
+                    BEGIN
+                        INSERT INTO fac_approval (
+                            proposed_action_id, apex_task_id, task_definition_name,
+                            outcome, approver_username, approval_comments
+                        ) VALUES (
+                            p_proposed_action_id, p_apex_task_id, p_task_definition_name,
+                            p_outcome, p_approver_username, p_approval_comments
+                        );
+                    END record_approval;
+
+                    PROCEDURE record_execution (
+                        p_proposed_action_id     IN NUMBER,
+                        p_attempt_no             IN NUMBER,
+                        p_fusion_endpoint        IN VARCHAR2,
+                        p_request_payload        IN CLOB,
+                        p_response_status_code   IN NUMBER,
+                        p_response_payload       IN CLOB,
+                        p_fusion_ess_request_id  IN VARCHAR2 DEFAULT NULL,
+                        p_result                 IN VARCHAR2,
+                        p_error_message          IN VARCHAR2 DEFAULT NULL,
+                        p_executed_by            IN VARCHAR2,
+                        p_correlation_id         IN VARCHAR2
+                    ) IS
+                    BEGIN
+                        INSERT INTO fac_action_execution_log (
+                            proposed_action_id, attempt_no, fusion_endpoint,
+                            request_payload, response_status_code, response_payload,
+                            fusion_ess_request_id, result, error_message,
+                            executed_by, correlation_id
+                        ) VALUES (
+                            p_proposed_action_id, p_attempt_no, p_fusion_endpoint,
+                            p_request_payload, p_response_status_code, p_response_payload,
+                            p_fusion_ess_request_id, p_result, p_error_message,
+                            p_executed_by, p_correlation_id
+                        );
+                    END record_execution;
+
+                END fac_audit_pkg;
+                ```
+        }
+    )
+
+    installScript fac-ess-job-pkg-body (
+        name: FAC_ESS_JOB_PKG body
+        execution {
+            sequence: 220
+        }
+        script {
+            type: packageBody
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE BODY fac_ess_job_pkg AS
+
+                    FUNCTION get_registry_row (p_job_code IN VARCHAR2) RETURN fac_ess_job_registry%ROWTYPE IS
+                        l_row fac_ess_job_registry%ROWTYPE;
+                    BEGIN
+                        SELECT * INTO l_row
+                          FROM fac_ess_job_registry
+                         WHERE job_code = p_job_code;
+                        RETURN l_row;
+                    EXCEPTION
+                        WHEN NO_DATA_FOUND THEN
+                            raise_application_error(-20020,
+                                'fac_ess_job_pkg: unknown ESS job code ' || p_job_code);
+                    END get_registry_row;
+
+                    FUNCTION build_request_body (
+                        p_job_code   IN VARCHAR2,
+                        p_parameters IN VARCHAR2
+                    ) RETURN CLOB IS
+                        l_row fac_ess_job_registry%ROWTYPE;
+                    BEGIN
+                        l_row := get_registry_row(p_job_code);
+
+                        IF l_row.is_confirmed != 'Y' THEN
+                            raise_application_error(-20021,
+                                'fac_ess_job_pkg: ESS job code ' || p_job_code ||
+                                ' is not IS_CONFIRMED=''Y'' in FAC_ESS_JOB_REGISTRY - confirm the ' ||
+                                'real JobPackageName/JobDefName with the Fusion team before enabling it.');
+                        END IF;
+
+                        RETURN json_object(
+                            KEY 'OperationName'  VALUE 'submitESSJobRequest',
+                            KEY 'JobPackageName' VALUE l_row.job_package_name,
+                            KEY 'JobDefName'     VALUE l_row.job_def_name,
+                            KEY 'ESSParameters'  VALUE p_parameters
+                        );
+                    END build_request_body;
+
+                    FUNCTION get_transport (
+                        p_job_code IN VARCHAR2
+                    ) RETURN VARCHAR2 IS
+                        l_row fac_ess_job_registry%ROWTYPE;
+                    BEGIN
+                        l_row := get_registry_row(p_job_code);
+                        RETURN l_row.transport;
+                    END get_transport;
+
+                END fac_ess_job_pkg;
+                ```
+        }
+    )
+
+    installScript fac-gl-period-read-pkg-body (
+        name: FAC_GL_PERIOD_READ_PKG body
+        execution {
+            sequence: 230
+        }
+        script {
+            type: packageBody
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE BODY fac_gl_period_read_pkg AS
+
+                    FUNCTION get_period_status_json (
+                        p_ledger_name IN VARCHAR2 DEFAULT NULL,
+                        p_period_name IN VARCHAR2 DEFAULT NULL
+                    ) RETURN CLOB IS
+                        l_result CLOB;
+                    BEGIN
+                        -- Phase 1: local seeded mirror table. Phase 2: replace this
+                        -- query with fac_conn_get_pkg.get_json(<accountingPeriodStatusLOV
+                        -- URL>, 'FUSION-ERP-OAUTH-CRED') - callers do not change.
+                        SELECT json_arrayagg(
+                                   json_object(
+                                       KEY 'ledgerName'      VALUE ledger_name,
+                                       KEY 'periodName'      VALUE period_name,
+                                       KEY 'periodStatus'    VALUE period_status,
+                                       KEY 'periodStartDate' VALUE period_start_date,
+                                       KEY 'periodEndDate'   VALUE period_end_date
+                                   )
+                               )
+                          INTO l_result
+                          FROM fac_gl_period_status
+                         WHERE (p_ledger_name IS NULL OR ledger_name = p_ledger_name)
+                           AND (p_period_name IS NULL OR period_name = p_period_name);
+
+                        RETURN NVL(l_result, '[]');
+                    END get_period_status_json;
+
+                END fac_gl_period_read_pkg;
+                ```
+        }
+    )
+
+    installScript fac-suspense-read-pkg-body (
+        name: FAC_SUSPENSE_READ_PKG body
+        execution {
+            sequence: 240
+        }
+        script {
+            type: packageBody
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE BODY fac_suspense_read_pkg AS
+
+                    FUNCTION get_suspense_lines_json (
+                        p_ledger_name IN VARCHAR2 DEFAULT NULL,
+                        p_period_name IN VARCHAR2 DEFAULT NULL,
+                        p_min_amount  IN NUMBER   DEFAULT NULL
+                    ) RETURN CLOB IS
+                        l_result CLOB;
+                    BEGIN
+                        -- Phase 1: local seeded mirror table. Phase 2: repoint at
+                        -- whatever the Fusion team confirms exposes suspense lines
+                        -- (plan discovery item #4) - callers do not change.
+                        SELECT json_arrayagg(
+                                   json_object(
+                                       KEY 'suspenseTxnId'         VALUE suspense_txn_id,
+                                       KEY 'ledgerName'            VALUE ledger_name,
+                                       KEY 'periodName'            VALUE period_name,
+                                       KEY 'suspenseAccount'       VALUE suspense_account,
+                                       KEY 'enteredAmount'         VALUE entered_amount,
+                                       KEY 'currencyCode'          VALUE currency_code,
+                                       KEY 'sourceSystem'          VALUE source_system,
+                                       KEY 'referenceDescription'  VALUE reference_description,
+                                       KEY 'postedDate'            VALUE posted_date
+                                   )
+                               )
+                          INTO l_result
+                          FROM fac_suspense_transaction
+                         WHERE (p_ledger_name IS NULL OR ledger_name = p_ledger_name)
+                           AND (p_period_name IS NULL OR period_name = p_period_name)
+                           AND (p_min_amount IS NULL OR entered_amount >= p_min_amount);
+
+                        RETURN NVL(l_result, '[]');
+                    END get_suspense_lines_json;
+
+                END fac_suspense_read_pkg;
+                ```
+        }
+    )
+
+    installScript fac-action-stage-pkg-body (
+        name: FAC_ACTION_STAGE_PKG body
+        execution {
+            sequence: 250
+        }
+        script {
+            type: packageBody
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE BODY fac_action_stage_pkg AS
+
+                    FUNCTION create_proposal (
+                        p_action_type      IN VARCHAR2,
+                        p_fusion_module    IN VARCHAR2,
+                        p_source_reference IN CLOB,
+                        p_proposed_payload IN CLOB,
+                        p_ai_reasoning     IN CLOB,
+                        p_ai_evidence      IN CLOB DEFAULT NULL,
+                        p_ai_model_info    IN VARCHAR2 DEFAULT NULL,
+                        p_confidence_score IN NUMBER DEFAULT NULL,
+                        p_created_by       IN VARCHAR2
+                    ) RETURN NUMBER IS
+                        l_id NUMBER;
+                    BEGIN
+                        INSERT INTO fac_proposed_action (
+                            action_type, fusion_module, source_reference, proposed_payload,
+                            ai_reasoning, ai_evidence, ai_model_info, confidence_score,
+                            status, created_by, last_updated_by
+                        ) VALUES (
+                            p_action_type, p_fusion_module, p_source_reference, p_proposed_payload,
+                            p_ai_reasoning, p_ai_evidence, p_ai_model_info, p_confidence_score,
+                            'PROPOSED', p_created_by, p_created_by
+                        )
+                        RETURNING proposed_action_id INTO l_id;
+
+                        RETURN l_id;
+                    END create_proposal;
+
+                    PROCEDURE revise_proposal (
+                        p_proposed_action_id IN NUMBER,
+                        p_proposed_payload   IN CLOB,
+                        p_reasoning          IN CLOB,
+                        p_changed_by         IN VARCHAR2,
+                        p_change_reason      IN VARCHAR2 DEFAULT NULL
+                    ) IS
+                        l_next_version  NUMBER;
+                        l_old_payload   CLOB;
+                        l_old_reasoning CLOB;
+                    BEGIN
+                        SELECT proposed_payload, ai_reasoning
+                          INTO l_old_payload, l_old_reasoning
+                          FROM fac_proposed_action
+                         WHERE proposed_action_id = p_proposed_action_id
+                           AND status IN ('PROPOSED', 'PENDING_APPROVAL')
+                           FOR UPDATE;
+
+                        SELECT NVL(MAX(version_no), 0) + 1
+                          INTO l_next_version
+                          FROM fac_proposed_action_version
+                         WHERE proposed_action_id = p_proposed_action_id;
+
+                        INSERT INTO fac_proposed_action_version (
+                            proposed_action_id, version_no, payload_snapshot,
+                            reasoning_snapshot, changed_by, change_reason
+                        ) VALUES (
+                            p_proposed_action_id, l_next_version, l_old_payload,
+                            l_old_reasoning, p_changed_by, p_change_reason
+                        );
+
+                        UPDATE fac_proposed_action
+                           SET proposed_payload = p_proposed_payload,
+                               ai_reasoning     = p_reasoning,
+                               last_updated_by  = p_changed_by,
+                               last_updated_at  = SYSTIMESTAMP
+                         WHERE proposed_action_id = p_proposed_action_id;
+                    EXCEPTION
+                        WHEN NO_DATA_FOUND THEN
+                            raise_application_error(-20030,
+                                'fac_action_stage_pkg.revise_proposal: proposed action ' ||
+                                p_proposed_action_id || ' not found or no longer editable.');
+                    END revise_proposal;
+
+                    PROCEDURE submit_for_approval (
+                        p_proposed_action_id IN NUMBER,
+                        p_submitted_by       IN VARCHAR2
+                    ) IS
+                    BEGIN
+                        UPDATE fac_proposed_action
+                           SET status          = 'PENDING_APPROVAL',
+                               last_updated_by = p_submitted_by,
+                               last_updated_at = SYSTIMESTAMP
+                         WHERE proposed_action_id = p_proposed_action_id
+                           AND status = 'PROPOSED';
+
+                        IF SQL%ROWCOUNT = 0 THEN
+                            raise_application_error(-20031,
+                                'fac_action_stage_pkg.submit_for_approval: proposed action ' ||
+                                p_proposed_action_id || ' is not in PROPOSED status.');
+                        END IF;
+                    END submit_for_approval;
+
+                    PROCEDURE withdraw_proposal (
+                        p_proposed_action_id IN NUMBER,
+                        p_withdrawn_by       IN VARCHAR2
+                    ) IS
+                    BEGIN
+                        UPDATE fac_proposed_action
+                           SET status          = 'WITHDRAWN',
+                               last_updated_by = p_withdrawn_by,
+                               last_updated_at = SYSTIMESTAMP
+                         WHERE proposed_action_id = p_proposed_action_id
+                           AND status IN ('PROPOSED', 'PENDING_APPROVAL');
+
+                        IF SQL%ROWCOUNT = 0 THEN
+                            raise_application_error(-20032,
+                                'fac_action_stage_pkg.withdraw_proposal: proposed action ' ||
+                                p_proposed_action_id || ' cannot be withdrawn from its current status.');
+                        END IF;
+                    END withdraw_proposal;
+
+                    PROCEDURE mark_decision (
+                        p_proposed_action_id IN NUMBER,
+                        p_new_status         IN VARCHAR2
+                    ) IS
+                    BEGIN
+                        IF p_new_status NOT IN ('APPROVED', 'REJECTED') THEN
+                            raise_application_error(-20033,
+                                'fac_action_stage_pkg.mark_decision: invalid status ' || p_new_status);
+                        END IF;
+
+                        UPDATE fac_proposed_action
+                           SET status          = p_new_status,
+                               last_updated_at = SYSTIMESTAMP
+                         WHERE proposed_action_id = p_proposed_action_id
+                           AND status = 'PENDING_APPROVAL';
+
+                        IF SQL%ROWCOUNT = 0 THEN
+                            raise_application_error(-20034,
+                                'fac_action_stage_pkg.mark_decision: proposed action ' ||
+                                p_proposed_action_id || ' is not in PENDING_APPROVAL status.');
+                        END IF;
+                    END mark_decision;
+
+                    FUNCTION get_proposal_status (
+                        p_proposed_action_id IN NUMBER
+                    ) RETURN VARCHAR2 IS
+                        l_status fac_proposed_action.status%TYPE;
+                    BEGIN
+                        SELECT status INTO l_status
+                          FROM fac_proposed_action
+                         WHERE proposed_action_id = p_proposed_action_id;
+                        RETURN l_status;
+                    EXCEPTION
+                        WHEN NO_DATA_FOUND THEN
+                            RETURN NULL;
+                    END get_proposal_status;
+
+                    FUNCTION get_approvers (
+                        p_proposed_action_id IN NUMBER
+                    ) RETURN VARCHAR2 IS
+                        l_approvers VARCHAR2(4000);
+                    BEGIN
+                        -- Never hardcode a username - resolve from FAC_APPROVER,
+                        -- keyed by the proposal's fusion_module, seeded/maintained
+                        -- by an administrator page (or demo-seed-data.sql for Phase 1).
+                        SELECT LISTAGG(ap.username, ',') WITHIN GROUP (ORDER BY ap.username)
+                          INTO l_approvers
+                          FROM fac_proposed_action pa
+                          JOIN fac_approver ap ON ap.module_code = pa.fusion_module
+                         WHERE pa.proposed_action_id = p_proposed_action_id
+                           AND ap.enabled_flag = 'Y';
+
+                        IF l_approvers IS NULL THEN
+                            raise_application_error(-20035,
+                                'fac_action_stage_pkg.get_approvers: no enabled approver configured for ' ||
+                                'proposed_action_id ' || p_proposed_action_id || ' - add a row to FAC_APPROVER.');
+                        END IF;
+
+                        RETURN l_approvers;
+                    END get_approvers;
+
+                END fac_action_stage_pkg;
+                ```
+        }
+    )
+
+    installScript fac-ai-tool-api-pkg-body (
+        name: FAC_AI_TOOL_API_PKG body
+        execution {
+            sequence: 260
+        }
+        script {
+            type: packageBody
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE BODY fac_ai_tool_api_pkg AS
+
+                    FUNCTION get_period_status (
+                        p_ledger_name IN VARCHAR2 DEFAULT NULL,
+                        p_period_name IN VARCHAR2 DEFAULT NULL
+                    ) RETURN CLOB IS
+                    BEGIN
+                        RETURN fac_gl_period_read_pkg.get_period_status_json(p_ledger_name, p_period_name);
+                    END get_period_status;
+
+                    FUNCTION get_suspense_lines (
+                        p_ledger_name IN VARCHAR2 DEFAULT NULL,
+                        p_period_name IN VARCHAR2 DEFAULT NULL,
+                        p_min_amount  IN NUMBER DEFAULT NULL
+                    ) RETURN CLOB IS
+                    BEGIN
+                        RETURN fac_suspense_read_pkg.get_suspense_lines_json(p_ledger_name, p_period_name, p_min_amount);
+                    END get_suspense_lines;
+
+                    FUNCTION propose_suspense_correction (
+                        p_suspense_txn_id  IN VARCHAR2,
+                        p_proposed_account IN VARCHAR2,
+                        p_proposed_amount  IN NUMBER,
+                        p_rationale        IN CLOB,
+                        p_evidence_json    IN CLOB DEFAULT NULL,
+                        p_created_by       IN VARCHAR2
+                    ) RETURN NUMBER IS
+                        l_payload CLOB;
+                        l_source  CLOB;
+                    BEGIN
+                        l_payload := json_object(
+                            KEY 'suspenseTxnId'   VALUE p_suspense_txn_id,
+                            KEY 'proposedAccount' VALUE p_proposed_account,
+                            KEY 'proposedAmount'  VALUE p_proposed_amount
+                        );
+                        l_source := json_object(KEY 'suspenseTxnId' VALUE p_suspense_txn_id);
+
+                        RETURN fac_action_stage_pkg.create_proposal(
+                            p_action_type      => 'SUSPENSE_CORRECTION',
+                            p_fusion_module    => 'SLA',
+                            p_source_reference => l_source,
+                            p_proposed_payload => l_payload,
+                            p_ai_reasoning     => p_rationale,
+                            p_ai_evidence      => p_evidence_json,
+                            p_created_by       => p_created_by
+                        );
+                    END propose_suspense_correction;
+
+                    FUNCTION propose_period_action (
+                        p_ledger_name      IN VARCHAR2,
+                        p_period_name      IN VARCHAR2,
+                        p_requested_action IN VARCHAR2,
+                        p_rationale        IN CLOB,
+                        p_evidence_json    IN CLOB DEFAULT NULL,
+                        p_created_by       IN VARCHAR2
+                    ) RETURN NUMBER IS
+                        l_payload CLOB;
+                        l_source  CLOB;
+                    BEGIN
+                        IF p_requested_action NOT IN ('PERIOD_OPEN', 'PERIOD_CLOSE', 'CREATE_ACCOUNTING') THEN
+                            raise_application_error(-20040,
+                                'fac_ai_tool_api_pkg.propose_period_action: invalid requested action ' ||
+                                p_requested_action);
+                        END IF;
+
+                        l_payload := json_object(
+                            KEY 'ledgerName'      VALUE p_ledger_name,
+                            KEY 'periodName'      VALUE p_period_name,
+                            KEY 'requestedAction' VALUE p_requested_action
+                        );
+                        l_source := json_object(
+                            KEY 'ledgerName' VALUE p_ledger_name,
+                            KEY 'periodName' VALUE p_period_name
+                        );
+
+                        RETURN fac_action_stage_pkg.create_proposal(
+                            p_action_type      => p_requested_action,
+                            p_fusion_module    => 'GL',
+                            p_source_reference => l_source,
+                            p_proposed_payload => l_payload,
+                            p_ai_reasoning     => p_rationale,
+                            p_ai_evidence      => p_evidence_json,
+                            p_created_by       => p_created_by
+                        );
+                    END propose_period_action;
+
+                    FUNCTION get_proposal_status (
+                        p_proposed_action_id IN NUMBER
+                    ) RETURN VARCHAR2 IS
+                    BEGIN
+                        RETURN fac_action_stage_pkg.get_proposal_status(p_proposed_action_id);
+                    END get_proposal_status;
+
+                END fac_ai_tool_api_pkg;
+                ```
+        }
+    )
+
+    installScript fac-fusion-write-pkg-body (
+        name: FAC_FUSION_WRITE_PKG body
+        execution {
+            sequence: 270
+        }
+        script {
+            type: packageBody
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE BODY fac_fusion_write_pkg AS
+
+                    c_fusion_credential     CONSTANT VARCHAR2(128) := 'FUSION-ERP-OAUTH-CRED';
+                    c_erp_integrations_path CONSTANT VARCHAR2(200) := '/fscmRestApi/resources/11.13.18.05/erpintegrations';
+                    c_ess_scheduler_path    CONSTANT VARCHAR2(200) := '/ess/rest/scheduler/v1/requests';
+
+                    PROCEDURE check_approval_context (p_proposed_action_id IN NUMBER) IS
+                    BEGIN
+                        IF SYS_CONTEXT('FAC_APPROVAL_CTX', 'SOURCE') != 'HUMAN_TASK_COMPLETE'
+                        OR SYS_CONTEXT('FAC_APPROVAL_CTX', 'PROPOSED_ACTION_ID') != TO_CHAR(p_proposed_action_id)
+                        THEN
+                            raise_application_error(-20001,
+                                'fac_fusion_write_pkg: Fusion write attempted outside the approval-guard ' ||
+                                'path for proposed_action_id ' || p_proposed_action_id || '.');
+                        END IF;
+                    END check_approval_context;
+
+                    FUNCTION fusion_base_url RETURN VARCHAR2 IS
+                        l_url fac_app_config.config_value%TYPE;
+                    BEGIN
+                        SELECT config_value INTO l_url
+                          FROM fac_app_config
+                         WHERE config_key = 'FUSION_BASE_URL';
+
+                        IF l_url IS NULL OR l_url LIKE 'PENDING%' THEN
+                            raise_application_error(-20002,
+                                'fac_fusion_write_pkg: Fusion base URL is not configured yet - ' ||
+                                'update FAC_APP_CONFIG.FUSION_BASE_URL once confirmed.');
+                        END IF;
+                        RETURN l_url;
+                    EXCEPTION
+                        WHEN NO_DATA_FOUND THEN
+                            raise_application_error(-20002,
+                                'fac_fusion_write_pkg: Fusion base URL is not configured yet - ' ||
+                                'update FAC_APP_CONFIG.FUSION_BASE_URL once confirmed.');
+                    END fusion_base_url;
+
+                    PROCEDURE submit_ess_job (
+                        p_proposed_action_id IN NUMBER,
+                        p_job_code           IN VARCHAR2,
+                        p_parameters         IN VARCHAR2
+                    ) IS
+                        l_body      CLOB;
+                        l_response  CLOB;
+                        l_endpoint  VARCHAR2(500);
+                        l_transport VARCHAR2(30);
+                    BEGIN
+                        l_transport := fac_ess_job_pkg.get_transport(p_job_code);
+                        l_body      := fac_ess_job_pkg.build_request_body(p_job_code, p_parameters);
+                        l_endpoint  := fusion_base_url() ||
+                                       CASE l_transport
+                                           WHEN 'ESS_SCHEDULER_V1' THEN c_ess_scheduler_path
+                                           ELSE c_erp_integrations_path
+                                       END;
+
+                        apex_web_service.g_request_headers.delete;
+                        apex_web_service.g_request_headers(1).name  := 'Content-Type';
+                        apex_web_service.g_request_headers(1).value := 'application/json';
+
+                        l_response := apex_web_service.make_rest_request(
+                            p_url                  => l_endpoint,
+                            p_http_method          => 'POST',
+                            p_credential_static_id => c_fusion_credential,
+                            p_body                 => l_body
+                        );
+
+                        fac_audit_pkg.record_execution(
+                            p_proposed_action_id   => p_proposed_action_id,
+                            p_attempt_no           => 1,
+                            p_fusion_endpoint      => l_endpoint,
+                            p_request_payload      => l_body,
+                            p_response_status_code => apex_web_service.g_status_code,
+                            p_response_payload     => l_response,
+                            p_result               => CASE WHEN apex_web_service.g_status_code BETWEEN 200 AND 299
+                                                            THEN 'SUCCESS' ELSE 'FAILURE' END,
+                            p_error_message        => CASE WHEN apex_web_service.g_status_code NOT BETWEEN 200 AND 299
+                                                            THEN l_response END,
+                            p_executed_by          => 'FAC_SYSTEM',
+                            p_correlation_id       => 'FAC-' || p_proposed_action_id
+                        );
+
+                        IF apex_web_service.g_status_code NOT BETWEEN 200 AND 299 THEN
+                            UPDATE fac_proposed_action SET status = 'FAILED', last_updated_at = SYSTIMESTAMP
+                             WHERE proposed_action_id = p_proposed_action_id;
+                            COMMIT;
+                            raise_application_error(-20003,
+                                'fac_fusion_write_pkg: ESS job submission failed with HTTP ' ||
+                                apex_web_service.g_status_code || ' - see FAC_ACTION_EXECUTION_LOG.');
+                        END IF;
+
+                        UPDATE fac_proposed_action SET status = 'EXECUTED', last_updated_at = SYSTIMESTAMP
+                         WHERE proposed_action_id = p_proposed_action_id;
+                        COMMIT;
+                    END submit_ess_job;
+
+                    PROCEDURE execute_approved_action (
+                        p_proposed_action_id IN NUMBER
+                    ) IS
+                        l_action_type VARCHAR2(30);
+                        l_payload     CLOB;
+                    BEGIN
+                        check_approval_context(p_proposed_action_id);
+
+                        -- Atomic APPROVED -> EXECUTING transition; zero rows means
+                        -- this proposal was already executed/is executing - refuse
+                        -- rather than replay.
+                        UPDATE fac_proposed_action
+                           SET status = 'EXECUTING', last_updated_at = SYSTIMESTAMP
+                         WHERE proposed_action_id = p_proposed_action_id
+                           AND status = 'APPROVED'
+                        RETURNING action_type, proposed_payload INTO l_action_type, l_payload;
+
+                        IF SQL%ROWCOUNT = 0 THEN
+                            raise_application_error(-20004,
+                                'fac_fusion_write_pkg: proposed_action_id ' || p_proposed_action_id ||
+                                ' is not in APPROVED status - refusing to execute (possible replay).');
+                        END IF;
+                        COMMIT;
+
+                        CASE l_action_type
+                            WHEN 'PERIOD_OPEN' THEN
+                                submit_ess_job(p_proposed_action_id, 'PERIOD_OPEN',
+                                    JSON_VALUE(l_payload, '$.ledgerName') || ',' ||
+                                    JSON_VALUE(l_payload, '$.periodName'));
+                            WHEN 'PERIOD_CLOSE' THEN
+                                submit_ess_job(p_proposed_action_id, 'PERIOD_CLOSE',
+                                    JSON_VALUE(l_payload, '$.ledgerName') || ',' ||
+                                    JSON_VALUE(l_payload, '$.periodName'));
+                            WHEN 'CREATE_ACCOUNTING' THEN
+                                submit_ess_job(p_proposed_action_id, 'CREATE_ACCOUNTING',
+                                    JSON_VALUE(l_payload, '$.ledgerName') || ',' ||
+                                    JSON_VALUE(l_payload, '$.periodName'));
+                            WHEN 'SUSPENSE_CORRECTION' THEN
+                                -- Deliberately unimplemented: Oracle's documented
+                                -- correction mechanism (subledger adjustment vs.
+                                -- reversal+FBDI/Journal Import) is not yet confirmed
+                                -- with the Fusion functional team (plan discovery
+                                -- item #5). Fail loudly rather than guess.
+                                UPDATE fac_proposed_action SET status = 'FAILED', last_updated_at = SYSTIMESTAMP
+                                 WHERE proposed_action_id = p_proposed_action_id;
+                                COMMIT;
+                                raise_application_error(-20005,
+                                    'fac_fusion_write_pkg: suspense correction posting mechanism is not ' ||
+                                    'yet configured - confirm the correction method with the Fusion ' ||
+                                    'functional team before enabling this branch.');
+                            ELSE
+                                UPDATE fac_proposed_action SET status = 'FAILED', last_updated_at = SYSTIMESTAMP
+                                 WHERE proposed_action_id = p_proposed_action_id;
+                                COMMIT;
+                                raise_application_error(-20006,
+                                    'fac_fusion_write_pkg: unrecognized action_type ' || l_action_type);
+                        END CASE;
+                    END execute_approved_action;
+
+                END fac_fusion_write_pkg;
+                ```
+        }
+    )
+
+    installScript fac-approval-guard-pkg-body (
+        name: FAC_APPROVAL_GUARD_PKG body
+        execution {
+            sequence: 280
+        }
+        script {
+            type: packageBody
+            content:
+                ```sql
+                CREATE OR REPLACE PACKAGE BODY fac_approval_guard_pkg AS
+
+                    PROCEDURE handle_approved (
+                        p_proposed_action_id    IN NUMBER,
+                        p_apex_task_id          IN VARCHAR2,
+                        p_task_definition_name  IN VARCHAR2,
+                        p_approver_username     IN VARCHAR2,
+                        p_approval_comments     IN VARCHAR2 DEFAULT NULL
+                    ) IS
+                        l_current_status fac_proposed_action.status%TYPE;
+                    BEGIN
+                        -- Re-verify against the source of truth rather than trusting
+                        -- the caller; only proceed if genuinely awaiting approval.
+                        l_current_status := fac_action_stage_pkg.get_proposal_status(p_proposed_action_id);
+                        IF l_current_status != 'PENDING_APPROVAL' THEN
+                            raise_application_error(-20050,
+                                'fac_approval_guard_pkg.handle_approved: proposed_action_id ' ||
+                                p_proposed_action_id || ' is not PENDING_APPROVAL (current: ' ||
+                                NVL(l_current_status, 'NOT FOUND') || ').');
+                        END IF;
+
+                        fac_action_stage_pkg.mark_decision(p_proposed_action_id, 'APPROVED');
+
+                        fac_audit_pkg.record_approval(
+                            p_proposed_action_id   => p_proposed_action_id,
+                            p_apex_task_id         => p_apex_task_id,
+                            p_task_definition_name => p_task_definition_name,
+                            p_outcome              => 'APPROVE',
+                            p_approver_username    => p_approver_username,
+                            p_approval_comments    => p_approval_comments
+                        );
+                        COMMIT;
+
+                        -- Arm the context (only this package can) immediately before
+                        -- the one call allowed to use it, and clear it right after -
+                        -- success or failure - so nothing persists past this request.
+                        DBMS_SESSION.SET_CONTEXT('FAC_APPROVAL_CTX', 'SOURCE', 'HUMAN_TASK_COMPLETE');
+                        DBMS_SESSION.SET_CONTEXT('FAC_APPROVAL_CTX', 'PROPOSED_ACTION_ID', TO_CHAR(p_proposed_action_id));
+
+                        BEGIN
+                            fac_fusion_write_pkg.execute_approved_action(p_proposed_action_id);
+                        EXCEPTION
+                            WHEN OTHERS THEN
+                                DBMS_SESSION.CLEAR_CONTEXT('FAC_APPROVAL_CTX');
+                                RAISE;
+                        END;
+
+                        DBMS_SESSION.CLEAR_CONTEXT('FAC_APPROVAL_CTX');
+                    END handle_approved;
+
+                    PROCEDURE handle_rejected (
+                        p_proposed_action_id    IN NUMBER,
+                        p_apex_task_id          IN VARCHAR2,
+                        p_task_definition_name  IN VARCHAR2,
+                        p_approver_username     IN VARCHAR2,
+                        p_approval_comments     IN VARCHAR2 DEFAULT NULL
+                    ) IS
+                    BEGIN
+                        fac_action_stage_pkg.mark_decision(p_proposed_action_id, 'REJECTED');
+
+                        fac_audit_pkg.record_approval(
+                            p_proposed_action_id   => p_proposed_action_id,
+                            p_apex_task_id         => p_apex_task_id,
+                            p_task_definition_name => p_task_definition_name,
+                            p_outcome              => 'REJECT',
+                            p_approver_username    => p_approver_username,
+                            p_approval_comments    => p_approval_comments
+                        );
+                        COMMIT;
+                        -- No context is ever armed here - the rejection path has
+                        -- no ability to reach fac_fusion_write_pkg at all.
+                    END handle_rejected;
+
+                END fac_approval_guard_pkg;
+                ```
+        }
+    )
+
+    deinstall {
+        scriptFile: deinstall-script.sql
+    }
+    advanced {
+        includeInAppExport: true
+    }
+)

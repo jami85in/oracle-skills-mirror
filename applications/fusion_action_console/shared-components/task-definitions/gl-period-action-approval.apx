@@ -1,0 +1,102 @@
+taskDefinition GL_PERIOD_ACTION_APPROVAL (
+    name: GL Period Action Approval
+    type: approval
+    task {
+        subject: GL Period Action Approval Required
+    }
+    source {
+        type: sqlQuery
+        sqlQuery: select * from fac_proposed_action where proposed_action_id = :APEX$TASK_PK
+    }
+    advanced {
+        detailsPage: {
+            page: 101
+            items: {
+                P101_TASK_ID: &TASK_ID.
+            }
+            clearCache: 101
+            action: resetPagination
+        }
+    }
+
+    parameter PROPOSED_ACTION_ID (
+        label {
+            label: Proposed Action Id
+        }
+    )
+
+    action apply-period-action (
+        name: Apply Period Action
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    fac_approval_guard_pkg.handle_approved(
+                        p_proposed_action_id   => :APEX$TASK_PK,
+                        p_apex_task_id         => null,
+                        p_task_definition_name => 'GL_PERIOD_ACTION_APPROVAL',
+                        p_approver_username    => :APEX$TASK_OWNER,
+                        p_approval_comments    => null
+                    );
+                end;
+                ```
+        }
+        execution {
+            onEvent: complete
+            outcome: approved
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Period action approved and submitted for execution.
+        }
+    )
+
+    action reject-period-action (
+        name: Reject Period Action
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    fac_approval_guard_pkg.handle_rejected(
+                        p_proposed_action_id   => :APEX$TASK_PK,
+                        p_apex_task_id         => null,
+                        p_task_definition_name => 'GL_PERIOD_ACTION_APPROVAL',
+                        p_approver_username    => :APEX$TASK_OWNER,
+                        p_approval_comments    => null
+                    );
+                end;
+                ```
+        }
+        execution {
+            onEvent: complete
+            outcome: rejected
+            sequence: 20
+        }
+        successMessage {
+            successMessage: Period action rejected. Nothing was sent to Fusion.
+        }
+    )
+
+    participant (
+        value {
+            type: expression
+            plsqlExpression: fac_action_stage_pkg.get_approvers(:APEX$TASK_PK)
+        }
+    )
+
+    comments {
+        comments:
+            ```
+            The mandatory human-confirmation gate for Period Open/Close and
+            Create Accounting requests. Never add a page process or dynamic
+            action that calls fac_fusion_write_pkg or fac_approval_guard_pkg
+            directly - this task definition's onEvent:complete actions are
+            the only allowed entry point. See suspense-correction-approval.apx
+            for the same note on p_apex_task_id/p_approval_comments pending
+            confirmation of the real bind names.
+            ```
+    }
+
+)

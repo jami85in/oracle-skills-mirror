@@ -1,0 +1,114 @@
+breadcrumb breadcrumb (
+    name: Breadcrumb
+
+    entry home (
+        name: Home
+        pageNumber: 1
+        execution {
+            sequence: 10
+        }
+        link {
+            target: {
+                page: 1
+            }
+        }
+    )
+
+    entry suspense-queue (
+        name: Suspense Queue
+        pageNumber: 200
+        execution {
+            sequence: 20
+        }
+        link {
+            target: {
+                page: 200
+            }
+        }
+        layout {
+            parentEntry: @home
+        }
+    )
+
+    entry suspense-review (
+        name: Suspense Review & Correction
+        pageNumber: 210
+        execution {
+            sequence: 30
+        }
+        link {
+            target: {
+                page: 210
+            }
+        }
+        layout {
+            parentEntry: @suspense-queue
+        }
+    )
+
+    entry gl-period-dashboard (
+        name: GL Period Dashboard
+        pageNumber: 300
+        execution {
+            sequence: 40
+        }
+        link {
+            target: {
+                page: 300
+            }
+        }
+        layout {
+            parentEntry: @home
+        }
+    )
+
+    entry my-approvals (
+        name: My Approvals
+        pageNumber: 100
+        execution {
+            sequence: 50
+        }
+        link {
+            target: {
+                page: 100
+            }
+        }
+        layout {
+            parentEntry: @home
+        }
+    )
+
+    entry task-details (
+        name: Task Details
+        pageNumber: 101
+        execution {
+            sequence: 60
+        }
+        link {
+            target: {
+                page: 101
+            }
+        }
+        layout {
+            parentEntry: @my-approvals
+        }
+    )
+
+    entry ai-assistant (
+        name: AI Assistant
+        pageNumber: 110
+        execution {
+            sequence: 70
+        }
+        link {
+            target: {
+                page: 110
+            }
+        }
+        layout {
+            parentEntry: @home
+        }
+    )
+
+)
+
