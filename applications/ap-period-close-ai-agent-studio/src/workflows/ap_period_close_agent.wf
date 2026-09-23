@@ -1,0 +1,424 @@
+{
+  "workflowId": "300000142045074",
+  "workflowCode": "AP_PERIOD_CLOSE_AGENT",
+  "name": "AP Period Close Agent",
+  "description": "Checks AP invoices/holds that could block period close, asks the user how to handle any found, then opens the next period, runs Create Accounting, and closes the current period.",
+  "specification": {
+    "jsonSchemaName": "Workflow.spec",
+    "jsonSchemaVersion": "1",
+    "inputs": [],
+    "outputSpecification": " ",
+    "agentsValueMappings": [],
+    "dataPipeline": {
+      "pipelineNodes": [
+        {
+          "id": "start",
+          "code": "START",
+          "type": "START",
+          "metadata": {
+            "name": "Start",
+            "description": "Start of data pipeline"
+          },
+          "outcomes": {
+            "success": "1"
+          },
+          "inputs": [],
+          "diagram": {
+            "x": 5000,
+            "y": 5000
+          }
+        },
+        {
+          "id": "1",
+          "code": "EXTRACT_REQUEST_DETAILS",
+          "type": "LLM",
+          "metadata": {
+            "name": "Extract Request Details",
+            "description": "Extracts ledger, period, next period, and estimated period date range from the user's message."
+          },
+          "outcomes": {
+            "success": "2"
+          },
+          "inputs": [
+            {
+              "id": "1_systemPrompt",
+              "name": "systemPrompt",
+              "type": "string",
+              "value": "You extract structured period-close request details for an Accounts Payable period-close agent. Always return ledgerName, periodName, nextPeriodName, startDate, and endDate."
+            },
+            {
+              "id": "1_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "Extract the ledger name and accounting period being referenced for an AP period close request from this message: {{$context.$system.$inputMessage}}. Also compute the next calendar period name in the same MON-YY style, and estimate the ISO start date and end date (YYYY-MM-DD) of the referenced period's calendar month. Return only the structured fields requested."
+            }
+          ],
+          "diagram": {
+            "x": 5000,
+            "y": 5206
+          },
+          "outputSpecification": "{\"type\":\"object\",\"properties\":{\"ledgerName\":{\"type\":\"string\"},\"periodName\":{\"type\":\"string\"},\"nextPeriodName\":{\"type\":\"string\"},\"startDate\":{\"type\":\"string\"},\"endDate\":{\"type\":\"string\"}}}\n"
+        },
+        {
+          "id": "2",
+          "code": "QUERY_UNACCOUNTED_INVOICES",
+          "type": "EXTERNAL_REST",
+          "metadata": {
+            "name": "Query Unaccounted Invoices",
+            "description": "Calls the Query Unaccounted AP Invoices tool for the current period date range.",
+            "externalRestToolCode": "QUERY_UNACCOUNTED_AP_INVOICES",
+            "functionName": "getUnaccountedInvoices"
+          },
+          "outcomes": {
+            "success": "3"
+          },
+          "inputs": [
+            {
+              "id": "2_startDate",
+              "name": "startDate",
+              "type": "string",
+              "value": "{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.startDate}}"
+            },
+            {
+              "id": "2_endDate",
+              "name": "endDate",
+              "type": "string",
+              "value": "{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.endDate}}"
+            }
+          ],
+          "diagram": {
+            "x": 5000,
+            "y": 5428
+          }
+        },
+        {
+          "id": "3",
+          "code": "QUERY_OPEN_HOLDS",
+          "type": "EXTERNAL_REST",
+          "metadata": {
+            "name": "Query Open Holds",
+            "description": "Calls the Query Open AP Invoice Holds tool.",
+            "externalRestToolCode": "QUERY_OPEN_AP_INVOICE_HOLDS",
+            "functionName": "getOpenInvoiceHolds"
+          },
+          "outcomes": {
+            "success": "4"
+          },
+          "inputs": [],
+          "diagram": {
+            "x": 5000,
+            "y": 5650
+          }
+        },
+        {
+          "id": "4",
+          "code": "SUMMARIZE_EXCEPTIONS_AND_ASK",
+          "type": "LLM",
+          "metadata": {
+            "name": "Summarize Exceptions And Ask",
+            "description": "Summarizes stuck invoices/holds and asks the user how to proceed."
+          },
+          "outcomes": {
+            "success": "7"
+          },
+          "inputs": [
+            {
+              "id": "4_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "Using this unaccounted-invoices data: {{$context.$nodes.QUERY_UNACCOUNTED_INVOICES.$output}} and this open-holds data: {{$context.$nodes.QUERY_OPEN_HOLDS.$output}}, summarize any stuck AP invoices or open holds for the period (count, total amount if available, and why each is stuck). If both lists are empty, say the period looks clear. Then explicitly ask the user whether the stuck items should be swept to the next period or handled another way, or, if both lists are empty, ask the user to confirm proceeding with opening the next period, running Create Accounting, and closing the current period. Keep the message concise and end with one clear question."
+            }
+          ],
+          "diagram": {
+            "x": 5000,
+            "y": 5872
+          }
+        },
+        {
+          "id": "7",
+          "code": "ASK_ABOUT_SWEEP",
+          "type": "HUMAN",
+          "metadata": {
+            "name": "Ask About Sweep",
+            "description": "Displays the exceptions summary/question and waits for the user's reply; loops back to the classifier.",
+            "channelType": "CHAT",
+            "approvalEnabledFlag": false,
+            "feedbackEnabledFlag": true,
+            "loopBackNodeId": "5"
+          },
+          "outcomes": {
+            "success": "end"
+          },
+          "inputs": [
+            {
+              "id": "7_chatChannelInput",
+              "name": "chatChannelInput",
+              "type": "object",
+              "value": {
+                "messageTemplate": {
+                  "message": "{{$context.$nodes.SUMMARIZE_EXCEPTIONS_AND_ASK.$output}}"
+                }
+              }
+            }
+          ],
+          "diagram": {
+            "x": 5000,
+            "y": 6094
+          }
+        },
+        {
+          "id": "5",
+          "code": "CLASSIFY_SWEEP_DECISION",
+          "type": "LLM",
+          "metadata": {
+            "name": "Classify Sweep Decision",
+            "description": "Classifies the user's reply as PROCEED or STOP."
+          },
+          "outcomes": {
+            "success": "8"
+          },
+          "inputs": [
+            {
+              "id": "5_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "Classify the user's reply to a question about sweeping stuck AP invoices/holds to the next period, or about proceeding with period close when no exceptions were found. Reply text: {{$context.$nodes.ASK_ABOUT_SWEEP.$feedbackReceived}}. If the user wants to proceed with the sweep and continue closing the period, or confirms proceeding when there were no exceptions, set decision to PROCEED. If the user wants to stop, wait, or handle it another way, set decision to STOP."
+            }
+          ],
+          "diagram": {
+            "x": 5850,
+            "y": 5000
+          },
+          "outputSpecification": "{\"type\":\"object\",\"properties\":{\"decision\":{\"type\":\"string\",\"enum\":[\"PROCEED\",\"STOP\"]}}}\n"
+        },
+        {
+          "id": "8",
+          "code": "ROUTE_SWEEP_DECISION",
+          "type": "SWITCH",
+          "metadata": {
+            "name": "Route Sweep Decision",
+            "description": "Routes to PROCEED or STOP based on the classified reply.",
+            "convergenceTargetId": "6"
+          },
+          "outcomes": {
+            "PROCEED": "9",
+            "STOP": "6",
+            "success": ""
+          },
+          "inputs": [
+            {
+              "id": "8_caseExpression",
+              "name": "caseExpression",
+              "type": "string",
+              "value": "{{$context.$nodes.CLASSIFY_SWEEP_DECISION.$output.decision}}"
+            }
+          ],
+          "diagram": {
+            "x": 5850,
+            "y": 5222
+          },
+          "convergenceTargetId": "6"
+        },
+        {
+          "id": "9",
+          "code": "SUBMIT_PERIOD_OPEN",
+          "type": "EXTERNAL_REST",
+          "metadata": {
+            "name": "Submit Period Open",
+            "description": "Submits the ESS job to open the next AP period.",
+            "externalRestToolCode": "SUBMIT_PERIOD_CLOSE_ESS_JOB",
+            "functionName": "submitEssJob"
+          },
+          "outcomes": {
+            "success": "10"
+          },
+          "inputs": [
+            {
+              "id": "9_jobPackageName",
+              "name": "jobPackageName",
+              "type": "string",
+              "value": "<ESS_PACKAGE_PERIOD_OPEN_NOT_CONFIRMED>"
+            },
+            {
+              "id": "9_jobDefName",
+              "name": "jobDefName",
+              "type": "string",
+              "value": "<JOB_DEF_PERIOD_OPEN_NOT_CONFIRMED>"
+            },
+            {
+              "id": "9_essParams",
+              "name": "essParams",
+              "type": "string",
+              "value": "{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.ledgerName}},{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.nextPeriodName}},AP"
+            }
+          ],
+          "diagram": {
+            "x": 5400,
+            "y": 5444
+          }
+        },
+        {
+          "id": "10",
+          "code": "SUBMIT_CREATE_ACCOUNTING",
+          "type": "EXTERNAL_REST",
+          "metadata": {
+            "name": "Submit Create Accounting",
+            "description": "Submits the ESS job to run Create Accounting for Payables.",
+            "externalRestToolCode": "SUBMIT_PERIOD_CLOSE_ESS_JOB",
+            "functionName": "submitEssJob"
+          },
+          "outcomes": {
+            "success": "11"
+          },
+          "inputs": [
+            {
+              "id": "10_jobPackageName",
+              "name": "jobPackageName",
+              "type": "string",
+              "value": "<ESS_PACKAGE_CREATE_ACCOUNTING_NOT_CONFIRMED>"
+            },
+            {
+              "id": "10_jobDefName",
+              "name": "jobDefName",
+              "type": "string",
+              "value": "<JOB_DEF_CREATE_ACCOUNTING_NOT_CONFIRMED>"
+            },
+            {
+              "id": "10_essParams",
+              "name": "essParams",
+              "type": "string",
+              "value": "{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.ledgerName}},{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.periodName}},Payables"
+            }
+          ],
+          "diagram": {
+            "x": 5400,
+            "y": 5666
+          }
+        },
+        {
+          "id": "11",
+          "code": "SUBMIT_PERIOD_CLOSE",
+          "type": "EXTERNAL_REST",
+          "metadata": {
+            "name": "Submit Period Close",
+            "description": "Submits the ESS job to close the current AP period.",
+            "externalRestToolCode": "SUBMIT_PERIOD_CLOSE_ESS_JOB",
+            "functionName": "submitEssJob"
+          },
+          "outcomes": {
+            "success": "6"
+          },
+          "inputs": [
+            {
+              "id": "11_jobPackageName",
+              "name": "jobPackageName",
+              "type": "string",
+              "value": "<ESS_PACKAGE_PERIOD_CLOSE_NOT_CONFIRMED>"
+            },
+            {
+              "id": "11_jobDefName",
+              "name": "jobDefName",
+              "type": "string",
+              "value": "<JOB_DEF_PERIOD_CLOSE_NOT_CONFIRMED>"
+            },
+            {
+              "id": "11_essParams",
+              "name": "essParams",
+              "type": "string",
+              "value": "{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.ledgerName}},{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.periodName}},AP"
+            }
+          ],
+          "diagram": {
+            "x": 5400,
+            "y": 5888
+          }
+        },
+        {
+          "id": "6",
+          "code": "FINAL_RESPONSE",
+          "type": "LLM",
+          "metadata": {
+            "name": "Final Response",
+            "description": "Convergence terminal: reports outcome whether stopped or proceeded."
+          },
+          "outcomes": {
+            "success": "end"
+          },
+          "inputs": [
+            {
+              "id": "6_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "Generate a final status message for the user about this AP period close request. Check {{$context.$nodes.CLASSIFY_SWEEP_DECISION.$output.decision}}. If it is STOP, acknowledge that no further action was taken and invite the user to say how they'd like to proceed with the stuck invoices or holds. If it is PROCEED, summarize that the next period was opened, Create Accounting was submitted for Payables, and the current period was closed, using these submission results: period open result {{$context.$nodes.SUBMIT_PERIOD_OPEN.$output}}, create accounting result {{$context.$nodes.SUBMIT_CREATE_ACCOUNTING.$output}}, period close result {{$context.$nodes.SUBMIT_PERIOD_CLOSE.$output}}. Tell the user these actions were submitted directly with no separate approval step. Return only the final message text."
+            }
+          ],
+          "diagram": {
+            "x": 5850,
+            "y": 6110
+          }
+        },
+        {
+          "id": "end",
+          "code": "END",
+          "type": "END",
+          "metadata": {
+            "name": "End",
+            "description": "End of data pipeline"
+          },
+          "outcomes": {},
+          "inputs": [],
+          "diagram": {
+            "x": 5000,
+            "y": 5220
+          }
+        }
+      ],
+      "rootNode": "start",
+      "variables": [],
+      "errorHandlers": []
+    },
+    "modelConfiguration": null,
+    "humanApprovalFlag": true,
+    "waitFlag": false,
+    "triggers": [
+      {
+        "type": "REST",
+        "inputs": []
+      }
+    ],
+    "deletedTriggerTypes": [],
+    "answerInUserLanguage": false,
+    "userLanguagePrompt": "",
+    "chatExpTPFileUploadEnabledFlag": false,
+    "chatExpThirdPartyDetails": [],
+    "diagram": {
+      "orientation": "vertical",
+      "commentNodes": []
+    }
+  },
+  "status": "DRAFT",
+  "version": 86098754,
+  "family": "FIN",
+  "product": "PAYABLES",
+  "ownerName": "",
+  "customFlag": false,
+  "seededFlag": false,
+  "isTemplate": false,
+  "customizationPolicy": null,
+  "hiddenFlag": false,
+  "useCaseId": "NA",
+  "accessModifier": "public",
+  "architecture": "data_pipeline",
+  "sourceWorkflowCode": null,
+  "aiAppsCompatibleFlag": false,
+  "firstStarterQuestion": null,
+  "secondStarterQuestion": null,
+  "thirdStarterQuestion": null,
+  "followupEnabledFlag": false,
+  "followupPrompt": "Based on the following conversion: $param.system_context.chat_history generate $param.system_context.number_of_follow_up_questions\nfollow up questions only while strictly adhering to the JSON Schema format mentioned below. Remove the ```json markdown from the output.\nHere is the JSON Schema format the output should adhere to:\n[{\"question\": \"<put first question generated here>\"}, {\"question\": \"<put second question generated here>\"}, {\"question\": \"<put third question generated here>\"}",
+  "header": {
+    "ETag": "\"40\""
+  },
+  "emailConfigCode": null,
+  "jobRequestId": null
+}
