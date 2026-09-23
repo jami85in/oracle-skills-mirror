@@ -394,31 +394,25 @@
     "diagram": {
       "orientation": "vertical",
       "commentNodes": []
-    }
+    },
+    "defaultModelConfiguration": "ORA_MODEL_CONFIG_PREMIUM_OPEN_AI_GPT_4_1_MINI"
   },
   "status": "DRAFT",
-  "version": 86098754,
+  "version": 86100035,
   "family": "FIN",
   "product": "PAYABLES",
-  "ownerName": "",
+  "ownerName": null,
   "customFlag": false,
   "seededFlag": false,
   "isTemplate": false,
-  "customizationPolicy": null,
   "hiddenFlag": false,
   "useCaseId": "NA",
   "accessModifier": "public",
   "architecture": "data_pipeline",
-  "sourceWorkflowCode": null,
   "aiAppsCompatibleFlag": false,
-  "firstStarterQuestion": null,
-  "secondStarterQuestion": null,
-  "thirdStarterQuestion": null,
   "followupEnabledFlag": false,
   "followupPrompt": "Based on the following conversion: $param.system_context.chat_history generate $param.system_context.number_of_follow_up_questions\nfollow up questions only while strictly adhering to the JSON Schema format mentioned below. Remove the ```json markdown from the output.\nHere is the JSON Schema format the output should adhere to:\n[{\"question\": \"<put first question generated here>\"}, {\"question\": \"<put second question generated here>\"}, {\"question\": \"<put third question generated here>\"}",
   "header": {
-    "ETag": "\"40\""
-  },
-  "emailConfigCode": null,
-  "jobRequestId": null
+    "ETag": "\"41\""
+  }
 }
