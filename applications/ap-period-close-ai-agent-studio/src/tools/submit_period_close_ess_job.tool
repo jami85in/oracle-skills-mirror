@@ -1,15 +1,22 @@
 {
+  "toolId": "300000210695577",
+  "$context": {
+    "etag": "1"
+  },
+  "createdBy": "bolnu@deloitte.com",
+  "toolCreatedDate": "2026-09-23",
   "toolCode": "SUBMIT_PERIOD_CLOSE_ESS_JOB",
   "name": "Submit Period Close ESS Job",
   "description": "Submits an ESS job request to open a period, close a period, or run Create Accounting, for GL or AP.",
   "family": "FIN",
   "product": "FINANCIAL_COMMON",
   "type": "EXTERNAL_REST",
-  "status": "DRAFT",
+  "status": "PUBLISHED",
   "version": 1,
   "userInputRequiredFlag": false,
   "userInputMessage": "",
   "subType": "",
+  "namespace": "FIN.FINANCIAL_COMMON",
   "specification": {
     "customFlag": false,
     "jsonSchemaName": "Tool.spec",

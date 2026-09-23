@@ -1,15 +1,22 @@
 {
+  "toolId": "300000210695238",
+  "$context": {
+    "etag": "1"
+  },
+  "createdBy": "bolnu@deloitte.com",
+  "toolCreatedDate": "2026-09-23",
   "toolCode": "QUERY_UNACCOUNTED_AP_INVOICES",
   "name": "Query Unaccounted AP Invoices",
   "description": "Queries Fusion Payables invoices with Unaccounted accounting status in a given date range, to check for invoices that would block AP period close.",
   "family": "FIN",
   "product": "PAYABLES",
   "type": "EXTERNAL_REST",
-  "status": "DRAFT",
+  "status": "PUBLISHED",
   "version": 1,
   "userInputRequiredFlag": false,
   "userInputMessage": "",
   "subType": "",
+  "namespace": "FIN.PAYABLES",
   "specification": {
     "customFlag": false,
     "jsonSchemaName": "Tool.spec",

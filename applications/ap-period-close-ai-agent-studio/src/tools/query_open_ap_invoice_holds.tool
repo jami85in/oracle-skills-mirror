@@ -1,15 +1,22 @@
 {
+  "toolId": "300000210695241",
+  "$context": {
+    "etag": "1"
+  },
+  "createdBy": "bolnu@deloitte.com",
+  "toolCreatedDate": "2026-09-23",
   "toolCode": "QUERY_OPEN_AP_INVOICE_HOLDS",
   "name": "Query Open AP Invoice Holds",
   "description": "Queries Fusion Payables invoice holds that have not been released, to check for open holds that would block AP period close.",
   "family": "FIN",
   "product": "PAYABLES",
   "type": "EXTERNAL_REST",
-  "status": "DRAFT",
+  "status": "PUBLISHED",
   "version": 1,
   "userInputRequiredFlag": false,
   "userInputMessage": "",
   "subType": "",
+  "namespace": "FIN.PAYABLES",
   "specification": {
     "customFlag": false,
     "jsonSchemaName": "Tool.spec",
