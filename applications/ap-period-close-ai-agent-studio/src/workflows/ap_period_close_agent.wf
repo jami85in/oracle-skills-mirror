@@ -309,7 +309,7 @@
               "id": "6_prompt",
               "name": "prompt",
               "type": "string",
-              "value": "Generate a final status message for the user about this AP period close request. Check {{$context.$nodes.CLASSIFY_SWEEP_DECISION.$output.decision}}. If it is STOP, acknowledge that no further action was taken and invite the user to say how they'd like to proceed with the stuck invoices or holds. If it is PROCEED, summarize that the next period was opened, Create Accounting was submitted for Payables, and the current period was closed, using these submission results: period open result {{$context.$nodes.SUBMIT_PERIOD_OPEN.$output}}, create accounting result {{$context.$nodes.SUBMIT_CREATE_ACCOUNTING.$output}}, period close result {{$context.$nodes.SUBMIT_PERIOD_CLOSE.$output}}. Tell the user these actions were submitted directly with no separate approval step. Return only the final message text."
+              "value": "Generate a final status message for the user about this AP period close request. Check {{$context.$nodes.CLASSIFY_SWEEP_DECISION.$output.decision}}. If it is STOP, acknowledge that no further action was taken and invite the user to say how they'd like to proceed with the stuck invoices or holds. If it is PROCEED, examine these three raw submission results without assuming any of them succeeded: period open result {{$context.$nodes.SUBMIT_PERIOD_OPEN.$output}}, create accounting result {{$context.$nodes.SUBMIT_CREATE_ACCOUNTING.$output}}, period close result {{$context.$nodes.SUBMIT_PERIOD_CLOSE.$output}}. A genuinely successful ESS job submission contains a real request identifier (for example a ReqstId field). A failed one instead contains fields such as title, status, or o:errorDetails, or otherwise lacks a request identifier. For each of the three, state specifically whether it succeeded or failed based on what its actual result contains. Never state that an action succeeded unless its result actually shows that. If any failed, say plainly which ones failed and include the actual error detail text from the result so the user can act on it - do not soften, hide, summarize away, or omit a failure. Tell the user that whatever was submitted was submitted directly with no separate approval step, regardless of whether it succeeded. Return only the final message text."
             }
           ],
           "diagram": {
@@ -487,7 +487,7 @@
     "defaultModelConfiguration": "ORA_MODEL_CONFIG_PREMIUM_OPEN_AI_GPT_4_1_MINI"
   },
   "status": "DRAFT",
-  "version": 86151940,
+  "version": 86153175,
   "family": "FIN",
   "product": "PAYABLES",
   "ownerName": null,
@@ -502,6 +502,6 @@
   "followupEnabledFlag": false,
   "followupPrompt": "Based on the following conversion: $param.system_context.chat_history generate $param.system_context.number_of_follow_up_questions\nfollow up questions only while strictly adhering to the JSON Schema format mentioned below. Remove the ```json markdown from the output.\nHere is the JSON Schema format the output should adhere to:\n[{\"question\": \"<put first question generated here>\"}, {\"question\": \"<put second question generated here>\"}, {\"question\": \"<put third question generated here>\"}",
   "header": {
-    "ETag": "\"47\""
+    "ETag": "\"48\""
   }
 }
