@@ -194,7 +194,7 @@
           "type": "BO_FUNCTION",
           "metadata": {
             "name": "Query Unaccounted Invoices",
-            "description": "Fetches Payables invoices in Unaccounted/Needs Validation status via the existing exception-report BO.",
+            "description": "Fetches Payables invoices in Unaccounted/Needs Validation status via the existing exception-report BO. Note: this BOs underlying query is fixed and tenant-wide, not filtered by ledger or period - a known limitation inherited from the BO, not something this workflow can filter further.",
             "businessObjectCode": "ORA_FIN_PAYABLES_PAYABLESPERIODCLOSEEXCEPTIONREPORT",
             "functionName": "getall_invoices"
           },
@@ -715,7 +715,7 @@
     "defaultModelConfiguration": "ORA_MODEL_CONFIG_PREMIUM_OPEN_AI_GPT_4_1_MINI"
   },
   "status": "DRAFT",
-  "version": 86156800,
+  "version": 86157912,
   "family": "FIN",
   "product": "PAYABLES",
   "ownerName": null,
@@ -730,6 +730,6 @@
   "followupEnabledFlag": false,
   "followupPrompt": "Based on the following conversion: $param.system_context.chat_history generate $param.system_context.number_of_follow_up_questions\nfollow up questions only while strictly adhering to the JSON Schema format mentioned below. Remove the ```json markdown from the output.\nHere is the JSON Schema format the output should adhere to:\n[{\"question\": \"<put first question generated here>\"}, {\"question\": \"<put second question generated here>\"}, {\"question\": \"<put third question generated here>\"}",
   "header": {
-    "ETag": "\"49\""
+    "ETag": "\"50\""
   }
 }
