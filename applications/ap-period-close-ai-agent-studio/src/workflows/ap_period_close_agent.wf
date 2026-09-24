@@ -144,7 +144,7 @@
           "metadata": {
             "name": "Build Holds Query",
             "description": "Pre-builds the invoiceHolds q filter string from the extracted date range.",
-            "sourceCode": "const startDate = $context.$nodes.EXTRACT_REQUEST_DETAILS?.$output?.startDate || \"\";\nconst endDate = $context.$nodes.EXTRACT_REQUEST_DETAILS?.$output?.endDate || \"\";\nconst q = \"HoldDate>=\" + startDate + \";HoldDate<=\" + endDate;\nconst result = { q };\nreturn result;",
+            "sourceCode": "const startDate = $context.$nodes.EXTRACT_REQUEST_DETAILS?.$output?.startDate || \"\";\nconst endDate = $context.$nodes.EXTRACT_REQUEST_DETAILS?.$output?.endDate || \"\";\nconst q = \"HoldDate>='\" + startDate + \"';HoldDate<='\" + endDate + \"'\";\nconst result = { q };\nreturn result;",
             "returnType": "object"
           },
           "outcomes": {
@@ -487,7 +487,7 @@
     "defaultModelConfiguration": "ORA_MODEL_CONFIG_PREMIUM_OPEN_AI_GPT_4_1_MINI"
   },
   "status": "DRAFT",
-  "version": 86151270,
+  "version": 86151455,
   "family": "FIN",
   "product": "PAYABLES",
   "ownerName": null,
@@ -502,6 +502,6 @@
   "followupEnabledFlag": false,
   "followupPrompt": "Based on the following conversion: $param.system_context.chat_history generate $param.system_context.number_of_follow_up_questions\nfollow up questions only while strictly adhering to the JSON Schema format mentioned below. Remove the ```json markdown from the output.\nHere is the JSON Schema format the output should adhere to:\n[{\"question\": \"<put first question generated here>\"}, {\"question\": \"<put second question generated here>\"}, {\"question\": \"<put third question generated here>\"}",
   "header": {
-    "ETag": "\"44\""
+    "ETag": "\"45\""
   }
 }
