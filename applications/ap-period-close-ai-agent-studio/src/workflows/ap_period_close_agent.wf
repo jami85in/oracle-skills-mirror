@@ -144,7 +144,7 @@
           "metadata": {
             "name": "Build Holds Query",
             "description": "Pre-builds the invoiceHolds q filter string from the extracted date range.",
-            "sourceCode": "const startDate = $context.$nodes.EXTRACT_REQUEST_DETAILS?.$output?.startDate || \"\";\nconst endDate = $context.$nodes.EXTRACT_REQUEST_DETAILS?.$output?.endDate || \"\";\nconst q = \"HoldDate>='\" + startDate + \"';HoldDate<='\" + endDate + \"'\";\nconst result = { q };\nreturn result;",
+            "sourceCode": "const q = \"HoldName LIKE '%'\";\nconst result = { q };\nreturn result;",
             "returnType": "object"
           },
           "outcomes": {
@@ -200,7 +200,7 @@
               "id": "4_prompt",
               "name": "prompt",
               "type": "string",
-              "value": "Using this unaccounted/needs-validation invoices data: {{$context.$nodes.QUERY_UNACCOUNTED_INVOICES.$output}} and this invoice-holds data: {{$context.$nodes.QUERY_OPEN_HOLDS.$output}}, summarize any stuck AP invoices or open holds for the period (count, total amount if available, and why each is stuck). For the holds data, a hold is still active only when its ReleaseDate field is null or missing - ignore any row where ReleaseDate is populated, since that hold has already been released. If nothing stuck remains after that check, say the period looks clear. Then explicitly ask the user whether the stuck items should be swept to the next period or handled another way, or, if nothing is stuck, ask the user to confirm proceeding with opening the next period, running Create Accounting, and closing the current period. Keep the message concise and end with one clear question."
+              "value": "Using this unaccounted/needs-validation invoices data: {{$context.$nodes.QUERY_UNACCOUNTED_INVOICES.$output}} and this invoice-holds data: {{$context.$nodes.QUERY_OPEN_HOLDS.$output}}, summarize any stuck AP invoices or open holds (count, total amount if available, and why each is stuck). The holds data is not filtered to this specific period, so only count a hold as relevant if it is still active (its ReleaseDate field is null or missing - ignore any row where ReleaseDate is populated) and, when a date field is present on the row, appears to fall within or near the current period. If nothing stuck remains after that check, say the period looks clear. Then explicitly ask the user whether the stuck items should be swept to the next period or handled another way, or, if nothing is stuck, ask the user to confirm proceeding with opening the next period, running Create Accounting, and closing the current period. Keep the message concise and end with one clear question."
             }
           ],
           "diagram": {
@@ -487,7 +487,7 @@
     "defaultModelConfiguration": "ORA_MODEL_CONFIG_PREMIUM_OPEN_AI_GPT_4_1_MINI"
   },
   "status": "DRAFT",
-  "version": 86151455,
+  "version": 86151692,
   "family": "FIN",
   "product": "PAYABLES",
   "ownerName": null,
@@ -502,6 +502,6 @@
   "followupEnabledFlag": false,
   "followupPrompt": "Based on the following conversion: $param.system_context.chat_history generate $param.system_context.number_of_follow_up_questions\nfollow up questions only while strictly adhering to the JSON Schema format mentioned below. Remove the ```json markdown from the output.\nHere is the JSON Schema format the output should adhere to:\n[{\"question\": \"<put first question generated here>\"}, {\"question\": \"<put second question generated here>\"}, {\"question\": \"<put third question generated here>\"}",
   "header": {
-    "ETag": "\"45\""
+    "ETag": "\"46\""
   }
 }
