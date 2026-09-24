@@ -1,0 +1,712 @@
+{
+  "testName": "ledger-disambiguation",
+  "scenario": {
+    "custom": false,
+    "source": "sync-plan",
+    "id": "ASK_LEDGER_DISAMBIGUATION-feedback-conversation",
+    "kind": "conversation",
+    "intent": "User gives an ambiguous ledger name that matches more than one real ledger; the agent lists the exact candidate names and asks the user to pick one instead of guessing."
+  },
+  "workflow": {
+    "workflowCode": "AP_PERIOD_CLOSE_AGENT"
+  },
+  "authoring": {
+    "source": "model-authored",
+    "createdAt": "2026-09-24T04:41:35.253Z",
+    "userPrompt": "Verify the agent lists exact candidate ledger names and waits for the user to pick one when the ledger name is ambiguous, then proceeds once the exact name is given"
+  },
+  "defaults": {
+    "dataSource": "file",
+    "evaluationMode": "hybrid"
+  },
+  "conversation": {
+    "mode": "scripted",
+    "goal": "Verify the agent detects an ambiguous ledger name, lists real candidate ledger names, and waits for the user to pick the exact one.",
+    "steps": [
+      {
+        "stepId": "request-with-ambiguous-ledger",
+        "intent": "User asks to close the AP period using a partial/ambiguous ledger name that matches multiple real ledgers.",
+        "assertions": {
+          "contains": [],
+          "notContains": []
+        },
+        "pathAssertions": {
+          "mustExecute": [
+            {
+              "id": "extract-details-reached",
+              "name": "Request details are extracted",
+              "nodeCode": "EXTRACT_REQUEST_DETAILS"
+            },
+            {
+              "id": "ledger-period-checked",
+              "name": "Ledger/period presence is checked",
+              "nodeCode": "CHECK_LEDGER_PERIOD_PROVIDED"
+            },
+            {
+              "id": "ledger-resolved",
+              "name": "Ledger LOV is fetched",
+              "nodeCode": "RESOLVE_LEDGER_ID"
+            },
+            {
+              "id": "ledger-matched",
+              "name": "Ledger name matching is attempted",
+              "nodeCode": "MATCH_LEDGER_ID"
+            },
+            {
+              "id": "ledger-match-checked",
+              "name": "Ledger match is checked",
+              "nodeCode": "CHECK_LEDGER_MATCHED"
+            },
+            {
+              "id": "disambiguation-wait-reached",
+              "name": "Ledger disambiguation wait is reached",
+              "nodeCode": "ASK_LEDGER_DISAMBIGUATION"
+            }
+          ],
+          "mustNotExecute": [
+            {
+              "id": "unaccounted-invoices-not-run",
+              "name": "Unaccounted invoices are not checked before the ledger is confirmed",
+              "nodeCode": "QUERY_UNACCOUNTED_INVOICES"
+            },
+            {
+              "id": "open-holds-not-run",
+              "name": "Open holds are not checked before the ledger is confirmed",
+              "nodeCode": "QUERY_OPEN_HOLDS"
+            },
+            {
+              "id": "holds-query-not-built",
+              "name": "Holds query is not built before the ledger is confirmed",
+              "nodeCode": "BUILD_HOLDS_QUERY"
+            },
+            {
+              "id": "exceptions-not-summarized",
+              "name": "Exceptions are not summarized before the ledger is confirmed",
+              "nodeCode": "SUMMARIZE_EXCEPTIONS_AND_ASK"
+            },
+            {
+              "id": "sweep-wait-not-reached",
+              "name": "Sweep wait is not reached before the ledger is confirmed",
+              "nodeCode": "ASK_ABOUT_SWEEP"
+            },
+            {
+              "id": "ledger-period-wait-not-reached",
+              "name": "Ledger/period clarification wait is not needed",
+              "nodeCode": "ASK_LEDGER_PERIOD"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-classify_sweep_decision",
+              "name": "CLASSIFY_SWEEP_DECISION does not execute",
+              "nodeCode": "CLASSIFY_SWEEP_DECISION"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-route_sweep_decision",
+              "name": "ROUTE_SWEEP_DECISION does not execute",
+              "nodeCode": "ROUTE_SWEEP_DECISION"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-final_response",
+              "name": "FINAL_RESPONSE does not execute",
+              "nodeCode": "FINAL_RESPONSE"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-submit_period_open",
+              "name": "SUBMIT_PERIOD_OPEN does not execute",
+              "nodeCode": "SUBMIT_PERIOD_OPEN"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-poll_period_open",
+              "name": "POLL_PERIOD_OPEN does not execute",
+              "nodeCode": "POLL_PERIOD_OPEN"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-submit_create_accounting",
+              "name": "SUBMIT_CREATE_ACCOUNTING does not execute",
+              "nodeCode": "SUBMIT_CREATE_ACCOUNTING"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-poll_create_accounting",
+              "name": "POLL_CREATE_ACCOUNTING does not execute",
+              "nodeCode": "POLL_CREATE_ACCOUNTING"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-submit_period_close",
+              "name": "SUBMIT_PERIOD_CLOSE does not execute",
+              "nodeCode": "SUBMIT_PERIOD_CLOSE"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-poll_period_close",
+              "name": "POLL_PERIOD_CLOSE does not execute",
+              "nodeCode": "POLL_PERIOD_CLOSE"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-submit_sweep",
+              "name": "SUBMIT_SWEEP does not execute",
+              "nodeCode": "SUBMIT_SWEEP"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-poll_sweep",
+              "name": "POLL_SWEEP does not execute",
+              "nodeCode": "POLL_SWEEP"
+            }
+          ]
+        },
+        "executionAssertions": {
+          "orderedNodeCodes": {
+            "id": "ambiguous-request-node-order",
+            "name": "Ambiguous request reaches the disambiguation wait in order",
+            "nodeCodes": [
+              "EXTRACT_REQUEST_DETAILS",
+              "CHECK_LEDGER_PERIOD_PROVIDED",
+              "RESOLVE_LEDGER_ID",
+              "MATCH_LEDGER_ID",
+              "CHECK_LEDGER_MATCHED",
+              "ASK_LEDGER_DISAMBIGUATION"
+            ]
+          },
+          "nodeCounts": {
+            "ASK_LEDGER_DISAMBIGUATION": {
+              "id": "single-disambiguation-suspension",
+              "name": "Disambiguation wait suspends once",
+              "exact": 1
+            }
+          }
+        },
+        "testData": {
+          "status": "ready",
+          "capturePolicy": "model-generated",
+          "nodes": {
+            "RESOLVE_LEDGER_ID": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "items": [
+                  {
+                    "LedgerId": "300100002",
+                    "LedgerName": "Lookahead CA PL USGAAP CAD"
+                  },
+                  {
+                    "LedgerId": "300100003",
+                    "LedgerName": "Lookahead CA SL LOCALGAAP CAD"
+                  },
+                  {
+                    "LedgerId": "300100001",
+                    "LedgerName": "Vision Operations"
+                  }
+                ],
+                "hasMore": false,
+                "count": 3
+              }
+            }
+          }
+        },
+        "expectedWait": {
+          "id": "ledger-disambiguation-awaited",
+          "name": "Agent waits for the user to pick the exact ledger",
+          "nodeCode": "ASK_LEDGER_DISAMBIGUATION",
+          "nodeType": "HUMAN",
+          "channelType": "CHAT",
+          "allowedActions": [
+            "feedback"
+          ]
+        },
+        "type": "chat",
+        "input": {
+          "message": "Please close the AP period for CAD, period AUG-25."
+        }
+      },
+      {
+        "stepId": "pick-exact-ledger",
+        "intent": "User replies with the exact ledger name from the candidate list and reconfirms the period.",
+        "contextStepIds": [
+          "request-with-ambiguous-ledger"
+        ],
+        "assertions": {
+          "contains": [],
+          "notContains": []
+        },
+        "pathAssertions": {
+          "mustExecute": [
+            {
+              "id": "ledger-rematched",
+              "name": "Ledger is re-matched using the clarified name",
+              "nodeCode": "MATCH_LEDGER_ID"
+            },
+            {
+              "id": "ledger-match-rechecked",
+              "name": "Ledger match is rechecked",
+              "nodeCode": "CHECK_LEDGER_MATCHED"
+            },
+            {
+              "id": "unaccounted-invoices-checked",
+              "name": "Unaccounted invoices are checked",
+              "nodeCode": "QUERY_UNACCOUNTED_INVOICES"
+            },
+            {
+              "id": "holds-query-built",
+              "name": "Holds query is built",
+              "nodeCode": "BUILD_HOLDS_QUERY"
+            },
+            {
+              "id": "open-holds-checked",
+              "name": "Open holds are checked",
+              "nodeCode": "QUERY_OPEN_HOLDS"
+            },
+            {
+              "id": "exceptions-summarized",
+              "name": "Exceptions are summarized and the sweep question is asked",
+              "nodeCode": "SUMMARIZE_EXCEPTIONS_AND_ASK"
+            },
+            {
+              "id": "sweep-wait-reached",
+              "name": "Sweep decision wait is reached",
+              "nodeCode": "ASK_ABOUT_SWEEP"
+            }
+          ],
+          "mustNotExecute": [
+            {
+              "id": "extract-details-not-repeated",
+              "name": "Request details are not extracted again",
+              "nodeCode": "EXTRACT_REQUEST_DETAILS"
+            },
+            {
+              "id": "ledger-not-reresolved",
+              "name": "Ledger LOV is not re-fetched",
+              "nodeCode": "RESOLVE_LEDGER_ID"
+            },
+            {
+              "id": "disambiguation-not-repeated",
+              "name": "Disambiguation wait does not repeat",
+              "nodeCode": "ASK_LEDGER_DISAMBIGUATION"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-check_ledger_period_provided",
+              "name": "CHECK_LEDGER_PERIOD_PROVIDED does not execute",
+              "nodeCode": "CHECK_LEDGER_PERIOD_PROVIDED"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-ask_ledger_period",
+              "name": "ASK_LEDGER_PERIOD does not execute",
+              "nodeCode": "ASK_LEDGER_PERIOD"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-classify_sweep_decision",
+              "name": "CLASSIFY_SWEEP_DECISION does not execute",
+              "nodeCode": "CLASSIFY_SWEEP_DECISION"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-route_sweep_decision",
+              "name": "ROUTE_SWEEP_DECISION does not execute",
+              "nodeCode": "ROUTE_SWEEP_DECISION"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-final_response",
+              "name": "FINAL_RESPONSE does not execute",
+              "nodeCode": "FINAL_RESPONSE"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-submit_period_open",
+              "name": "SUBMIT_PERIOD_OPEN does not execute",
+              "nodeCode": "SUBMIT_PERIOD_OPEN"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-poll_period_open",
+              "name": "POLL_PERIOD_OPEN does not execute",
+              "nodeCode": "POLL_PERIOD_OPEN"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-submit_create_accounting",
+              "name": "SUBMIT_CREATE_ACCOUNTING does not execute",
+              "nodeCode": "SUBMIT_CREATE_ACCOUNTING"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-poll_create_accounting",
+              "name": "POLL_CREATE_ACCOUNTING does not execute",
+              "nodeCode": "POLL_CREATE_ACCOUNTING"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-submit_period_close",
+              "name": "SUBMIT_PERIOD_CLOSE does not execute",
+              "nodeCode": "SUBMIT_PERIOD_CLOSE"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-poll_period_close",
+              "name": "POLL_PERIOD_CLOSE does not execute",
+              "nodeCode": "POLL_PERIOD_CLOSE"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-submit_sweep",
+              "name": "SUBMIT_SWEEP does not execute",
+              "nodeCode": "SUBMIT_SWEEP"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-poll_sweep",
+              "name": "POLL_SWEEP does not execute",
+              "nodeCode": "POLL_SWEEP"
+            }
+          ]
+        },
+        "executionAssertions": {
+          "orderedNodeCodes": {
+            "id": "resume-reaches-sweep-wait",
+            "name": "Resume re-matches the ledger and reaches the sweep wait in order",
+            "nodeCodes": [
+              "MATCH_LEDGER_ID",
+              "CHECK_LEDGER_MATCHED",
+              "QUERY_UNACCOUNTED_INVOICES",
+              "BUILD_HOLDS_QUERY",
+              "QUERY_OPEN_HOLDS",
+              "SUMMARIZE_EXCEPTIONS_AND_ASK",
+              "ASK_ABOUT_SWEEP"
+            ]
+          },
+          "nodeCounts": {
+            "ASK_ABOUT_SWEEP": {
+              "id": "single-sweep-suspension",
+              "name": "Sweep wait suspends once",
+              "exact": 1
+            }
+          }
+        },
+        "testData": {
+          "status": "ready",
+          "capturePolicy": "model-generated",
+          "nodes": {
+            "QUERY_UNACCOUNTED_INVOICES": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "items": [],
+                "hasMore": false,
+                "count": 0
+              }
+            },
+            "QUERY_OPEN_HOLDS": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "items": [],
+                "hasMore": false,
+                "count": 0
+              }
+            }
+          }
+        },
+        "expectedWait": {
+          "id": "sweep-decision-awaited",
+          "name": "Agent waits for the user's sweep decision",
+          "nodeCode": "ASK_ABOUT_SWEEP",
+          "nodeType": "HUMAN",
+          "channelType": "CHAT",
+          "allowedActions": [
+            "feedback"
+          ]
+        },
+        "type": "resume",
+        "resume": {
+          "waitStepId": "request-with-ambiguous-ledger",
+          "action": "feedback",
+          "content": "Lookahead CA PL USGAAP CAD, AUG-25"
+        }
+      },
+      {
+        "stepId": "confirm-no-exceptions-proceed",
+        "intent": "User confirms proceeding since the period looked clear.",
+        "contextStepIds": [
+          "request-with-ambiguous-ledger",
+          "pick-exact-ledger"
+        ],
+        "assertions": {
+          "contains": [],
+          "notContains": []
+        },
+        "pathAssertions": {
+          "mustExecute": [
+            {
+              "id": "sweep-decision-classified",
+              "name": "Sweep decision is classified",
+              "nodeCode": "CLASSIFY_SWEEP_DECISION"
+            },
+            {
+              "id": "sweep-decision-routed",
+              "name": "Sweep decision is routed",
+              "nodeCode": "ROUTE_SWEEP_DECISION"
+            },
+            {
+              "id": "period-open-submitted",
+              "name": "Next period open is submitted",
+              "nodeCode": "SUBMIT_PERIOD_OPEN"
+            },
+            {
+              "id": "period-open-polled",
+              "name": "Period open status is polled",
+              "nodeCode": "POLL_PERIOD_OPEN"
+            },
+            {
+              "id": "create-accounting-submitted",
+              "name": "Create Accounting is submitted",
+              "nodeCode": "SUBMIT_CREATE_ACCOUNTING"
+            },
+            {
+              "id": "create-accounting-polled",
+              "name": "Create Accounting status is polled",
+              "nodeCode": "POLL_CREATE_ACCOUNTING"
+            },
+            {
+              "id": "period-close-submitted",
+              "name": "Current period close is submitted",
+              "nodeCode": "SUBMIT_PERIOD_CLOSE"
+            },
+            {
+              "id": "period-close-polled",
+              "name": "Period close status is polled",
+              "nodeCode": "POLL_PERIOD_CLOSE"
+            },
+            {
+              "id": "final-response-returned",
+              "name": "Final response is returned",
+              "nodeCode": "FINAL_RESPONSE"
+            }
+          ],
+          "mustNotExecute": [
+            {
+              "id": "sweep-not-submitted",
+              "name": "No sweep is submitted since there were no exceptions",
+              "nodeCode": "SUBMIT_SWEEP"
+            },
+            {
+              "id": "sweep-not-polled",
+              "name": "Sweep status is not polled",
+              "nodeCode": "POLL_SWEEP"
+            },
+            {
+              "id": "sweep-wait-not-repeated",
+              "name": "Sweep wait does not repeat",
+              "nodeCode": "ASK_ABOUT_SWEEP"
+            },
+            {
+              "id": "confirm-no-exceptions-proceed-path-must-not-execute-extract_request_details",
+              "name": "EXTRACT_REQUEST_DETAILS does not execute",
+              "nodeCode": "EXTRACT_REQUEST_DETAILS"
+            },
+            {
+              "id": "confirm-no-exceptions-proceed-path-must-not-execute-check_ledger_period_provided",
+              "name": "CHECK_LEDGER_PERIOD_PROVIDED does not execute",
+              "nodeCode": "CHECK_LEDGER_PERIOD_PROVIDED"
+            },
+            {
+              "id": "confirm-no-exceptions-proceed-path-must-not-execute-ask_ledger_period",
+              "name": "ASK_LEDGER_PERIOD does not execute",
+              "nodeCode": "ASK_LEDGER_PERIOD"
+            },
+            {
+              "id": "confirm-no-exceptions-proceed-path-must-not-execute-resolve_ledger_id",
+              "name": "RESOLVE_LEDGER_ID does not execute",
+              "nodeCode": "RESOLVE_LEDGER_ID"
+            },
+            {
+              "id": "confirm-no-exceptions-proceed-path-must-not-execute-match_ledger_id",
+              "name": "MATCH_LEDGER_ID does not execute",
+              "nodeCode": "MATCH_LEDGER_ID"
+            },
+            {
+              "id": "confirm-no-exceptions-proceed-path-must-not-execute-check_ledger_matched",
+              "name": "CHECK_LEDGER_MATCHED does not execute",
+              "nodeCode": "CHECK_LEDGER_MATCHED"
+            },
+            {
+              "id": "confirm-no-exceptions-proceed-path-must-not-execute-query_unaccounted_invoices",
+              "name": "QUERY_UNACCOUNTED_INVOICES does not execute",
+              "nodeCode": "QUERY_UNACCOUNTED_INVOICES"
+            },
+            {
+              "id": "confirm-no-exceptions-proceed-path-must-not-execute-build_holds_query",
+              "name": "BUILD_HOLDS_QUERY does not execute",
+              "nodeCode": "BUILD_HOLDS_QUERY"
+            },
+            {
+              "id": "confirm-no-exceptions-proceed-path-must-not-execute-query_open_holds",
+              "name": "QUERY_OPEN_HOLDS does not execute",
+              "nodeCode": "QUERY_OPEN_HOLDS"
+            },
+            {
+              "id": "confirm-no-exceptions-proceed-path-must-not-execute-summarize_exceptions_and_ask",
+              "name": "SUMMARIZE_EXCEPTIONS_AND_ASK does not execute",
+              "nodeCode": "SUMMARIZE_EXCEPTIONS_AND_ASK"
+            },
+            {
+              "id": "confirm-no-exceptions-proceed-path-must-not-execute-ask_ledger_disambiguation",
+              "name": "ASK_LEDGER_DISAMBIGUATION does not execute",
+              "nodeCode": "ASK_LEDGER_DISAMBIGUATION"
+            }
+          ]
+        },
+        "executionAssertions": {
+          "orderedNodeCodes": {
+            "id": "no-exceptions-resume-order",
+            "name": "Resume completes the open/create-accounting/close sequence with status polling, without a sweep, in order",
+            "nodeCodes": [
+              "CLASSIFY_SWEEP_DECISION",
+              "ROUTE_SWEEP_DECISION",
+              "SUBMIT_PERIOD_OPEN",
+              "POLL_PERIOD_OPEN",
+              "SUBMIT_CREATE_ACCOUNTING",
+              "POLL_CREATE_ACCOUNTING",
+              "SUBMIT_PERIOD_CLOSE",
+              "POLL_PERIOD_CLOSE",
+              "FINAL_RESPONSE"
+            ]
+          },
+          "nodeCounts": {
+            "FINAL_RESPONSE": {
+              "id": "single-final-response",
+              "name": "Final response is generated once",
+              "exact": 1
+            }
+          }
+        },
+        "judge": {
+          "minimumScore": 4,
+          "expectedOutcome": "A final message confirming that, since there were no exceptions, the next period was opened, Create Accounting was submitted, and the current period was closed - each reported based on real polled status - with no separate human-approval step mentioned as pending, and no mention of a sweep since none was needed.",
+          "rubric": [
+            {
+              "id": "grounded-in-replayed-data",
+              "name": "Grounded in replayed data",
+              "criterion": "The output is grounded in the replayed test data."
+            },
+            {
+              "id": "confirms-no-approval-gate",
+              "name": "Confirms no separate approval step",
+              "criterion": "The message states or implies the actions were submitted directly, not pending a separate human approval."
+            },
+            {
+              "id": "covers-three-actions-no-sweep",
+              "name": "Covers the three submitted actions without mentioning a sweep",
+              "criterion": "The message mentions opening the next period, running Create Accounting, and closing the current period, without claiming a sweep occurred."
+            }
+          ]
+        },
+        "testData": {
+          "status": "ready",
+          "capturePolicy": "model-generated",
+          "nodes": {
+            "SUBMIT_PERIOD_OPEN": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100301"
+              }
+            },
+            "POLL_PERIOD_OPEN": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100301",
+                "RequestStatus": "SUCCEEDED"
+              }
+            },
+            "SUBMIT_CREATE_ACCOUNTING": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100302"
+              }
+            },
+            "POLL_CREATE_ACCOUNTING": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100302",
+                "RequestStatus": "SUCCEEDED"
+              }
+            },
+            "SUBMIT_PERIOD_CLOSE": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100303"
+              }
+            },
+            "POLL_PERIOD_CLOSE": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100303",
+                "RequestStatus": "SUCCEEDED"
+              }
+            }
+          }
+        },
+        "type": "resume",
+        "resume": {
+          "waitStepId": "pick-exact-ledger",
+          "action": "feedback",
+          "content": "Yes, please go ahead and proceed with the period close."
+        }
+      }
+    ],
+    "executionAssertions": {
+      "waitLifecycles": [
+        {
+          "id": "disambiguation-lifecycle",
+          "name": "Ledger disambiguation wait suspends and resumes once",
+          "waitNodeCode": "ASK_LEDGER_DISAMBIGUATION",
+          "expectedSuspensions": 1,
+          "expectedResumptions": 1
+        },
+        {
+          "id": "sweep-decision-lifecycle",
+          "name": "Sweep decision wait suspends and resumes once",
+          "waitNodeCode": "ASK_ABOUT_SWEEP",
+          "expectedSuspensions": 1,
+          "expectedResumptions": 1
+        }
+      ]
+    }
+  }
+}
