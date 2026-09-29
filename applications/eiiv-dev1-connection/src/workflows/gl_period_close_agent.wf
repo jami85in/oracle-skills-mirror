@@ -1,0 +1,569 @@
+{
+  "workflowId": "300000049856809",
+  "workflowCode": "GL_PERIOD_CLOSE_AGENT",
+  "name": "GL Period Close Agent",
+  "description": "Resolves the ledger and period, then submits and verifies the General Ledger allocation and revaluation processes the user requests.",
+  "specification": {
+    "jsonSchemaName": "Workflow.spec",
+    "jsonSchemaVersion": "1",
+    "inputs": [],
+    "outputSpecification": " ",
+    "agentsValueMappings": [],
+    "dataPipeline": {
+      "pipelineNodes": [
+        {
+          "id": "start",
+          "code": "START",
+          "type": "START",
+          "metadata": {
+            "name": "Start",
+            "description": "Start of data pipeline"
+          },
+          "outcomes": {
+            "success": "1"
+          },
+          "inputs": [],
+          "diagram": {
+            "x": 5450,
+            "y": 5000
+          }
+        },
+        {
+          "id": "1",
+          "code": "EXTRACT_REQUEST_DETAILS",
+          "type": "LLM",
+          "metadata": {
+            "name": "Extract Request Details",
+            "description": "Extracts ledger and period from the user's message or a prior clarification reply."
+          },
+          "outcomes": {
+            "success": "2"
+          },
+          "inputs": [
+            {
+              "id": "1_systemPrompt",
+              "name": "systemPrompt",
+              "type": "string",
+              "value": "You extract structured period-close request details for a General Ledger period-close agent. Always return ledgerName and periodName."
+            },
+            {
+              "id": "1_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "Extract the ledger name and accounting period being referenced for a GL period close request from this message: {{$context.$system.$inputMessage}}. If this message does not clearly state the ledger and/or period, but a prior clarification reply is available, use it instead or in addition: {{$context.$nodes.ASK_LEDGER_PERIOD.$feedbackReceived}}. Return only the structured fields requested. If ledger or period still cannot be determined, return empty strings for the unknown fields rather than guessing."
+            }
+          ],
+          "diagram": {
+            "x": 5450,
+            "y": 5206
+          },
+          "outputSpecification": "{\"type\":\"object\",\"properties\":{\"ledgerName\":{\"type\":\"string\"},\"periodName\":{\"type\":\"string\"}}}"
+        },
+        {
+          "id": "2",
+          "code": "CHECK_LEDGER_PERIOD_PROVIDED",
+          "type": "CONDITION",
+          "metadata": {
+            "name": "Check Ledger Period Provided",
+            "description": "Branches to ask for ledger/period when the initial message did not include them."
+          },
+          "outcomes": {
+            "true": "4",
+            "false": "3"
+          },
+          "inputs": [
+            {
+              "id": "2_condition",
+              "name": "condition",
+              "type": "string",
+              "value": "{{!!$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.ledgerName && !!$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.periodName}}"
+            }
+          ],
+          "diagram": {
+            "x": 5450,
+            "y": 5428
+          },
+          "convergenceTargetId": "end"
+        },
+        {
+          "id": "4",
+          "code": "RESOLVE_LEDGER_ID",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Resolve Ledger Id",
+            "description": "Fetches the full ledger LOV to resolve the extracted ledger name to a real ledger id.",
+            "businessObjectCode": "ORA_FIN_GENERALLED_GLLEDGERS",
+            "functionName": "getall_dataAccessSetLedgersLOV"
+          },
+          "outcomes": {
+            "success": "5"
+          },
+          "inputs": [],
+          "diagram": {
+            "x": 5225,
+            "y": 5650
+          },
+          "outputSpecification": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"items\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"LedgerId\": {\n            \"type\": \"number\"\n          },\n          \"LedgerName\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"LedgerId\",\n          \"LedgerName\"\n        ],\n        \"additionalProperties\": false\n      }\n    },\n    \"count\": {\n      \"type\": \"number\"\n    },\n    \"hasMore\": {\n      \"type\": \"boolean\"\n    }\n  },\n  \"required\": [\n    \"items\",\n    \"count\",\n    \"hasMore\"\n  ],\n  \"additionalProperties\": false\n}"
+        },
+        {
+          "id": "5",
+          "code": "MATCH_LEDGER_ID",
+          "type": "LLM",
+          "metadata": {
+            "name": "Match Ledger Id",
+            "description": "Matches the ledger name against the fetched ledger LOV; disambiguates when ambiguous."
+          },
+          "outcomes": {
+            "success": "6"
+          },
+          "inputs": [
+            {
+              "id": "5_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "Find the ledger the user means. The user's original ledger text was \"{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.ledgerName}}\". If a disambiguation reply is available, it takes priority over the original text: {{$context.$nodes.ASK_LEDGER_DISAMBIGUATION.$feedbackReceived}}. Match whichever of those is present (prefer the disambiguation reply if both are present) against this ledger list: {{$context.$nodes.RESOLVE_LEDGER_ID.$output}}. If exactly one ledger is a clear, confident match (exact name, or an unambiguous case/wording variant), return its numeric id as ledgerId, set matched to true, and leave candidates and disambiguationMessage empty. If the text could plausibly refer to two or more ledgers, or matches none exactly but resembles some, set matched to false, leave ledgerId empty, list up to 6 full exact ledger names that plausibly match as candidates, and write disambiguationMessage as a short message that lists those candidate ledger names and asks the user to reply with the exact ledger name from the list (and reconfirm the period name). If nothing plausible matches at all, set matched to false, leave candidates empty, and write disambiguationMessage explaining that no matching ledger was found and asking the user to re-check the ledger name."
+            }
+          ],
+          "diagram": {
+            "x": 5225,
+            "y": 5872
+          },
+          "outputSpecification": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"ledgerId\": {\"type\": \"string\"},\n    \"matched\": {\"type\": \"boolean\"},\n    \"candidates\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}},\n    \"disambiguationMessage\": {\"type\": \"string\"}\n  }\n}\n"
+        },
+        {
+          "id": "6",
+          "code": "CHECK_LEDGER_MATCHED",
+          "type": "CONDITION",
+          "metadata": {
+            "name": "Check Ledger Matched",
+            "description": "Branches to disambiguation when the ledger name could not be confidently matched."
+          },
+          "outcomes": {
+            "true": "8",
+            "false": "7"
+          },
+          "inputs": [
+            {
+              "id": "6_condition",
+              "name": "condition",
+              "type": "string",
+              "value": "{{!!$context.$nodes.MATCH_LEDGER_ID.$output.matched}}"
+            }
+          ],
+          "diagram": {
+            "x": 5225,
+            "y": 6094
+          },
+          "convergenceTargetId": "end"
+        },
+        {
+          "id": "8",
+          "code": "CONFIRM_LEDGER_AND_ASK_ACTIONS",
+          "type": "LLM",
+          "metadata": {
+            "name": "Confirm Ledger And Ask Actions",
+            "description": "Confirms the resolved ledger/period and asks which GL period-close processes to run."
+          },
+          "outcomes": {
+            "success": "9"
+          },
+          "inputs": [
+            {
+              "id": "8_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "The ledger \"{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.ledgerName}}\" has been resolved for period {{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.periodName}}. Write a short message confirming this ledger and period are ready, then ask the user whether they would like to run the allocation process, the revaluation process, both, or neither for this period. Keep it concise and end with that one question."
+            }
+          ],
+          "diagram": {
+            "x": 5000,
+            "y": 6316
+          }
+        },
+        {
+          "id": "9",
+          "code": "ASK_ABOUT_ACTIONS",
+          "type": "HUMAN",
+          "metadata": {
+            "name": "Ask About Actions",
+            "description": "Shows the confirmation/question and waits for the user's reply; loops back to the classifier.",
+            "channelType": "CHAT",
+            "approvalEnabledFlag": false,
+            "feedbackEnabledFlag": true,
+            "loopBackNodeId": "10"
+          },
+          "outcomes": {
+            "success": "end"
+          },
+          "inputs": [
+            {
+              "id": "9_chatChannelInput",
+              "name": "chatChannelInput",
+              "type": "object",
+              "value": {
+                "messageTemplate": {
+                  "message": "{{$context.$nodes.CONFIRM_LEDGER_AND_ASK_ACTIONS.$output}}"
+                }
+              }
+            }
+          ],
+          "diagram": {
+            "x": 5000,
+            "y": 6538
+          }
+        },
+        {
+          "id": "7",
+          "code": "ASK_LEDGER_DISAMBIGUATION",
+          "type": "HUMAN",
+          "metadata": {
+            "name": "Ask Ledger Disambiguation",
+            "description": "Shows candidate ledger names and asks the user to pick the exact one; loops back to re-match.",
+            "channelType": "CHAT",
+            "approvalEnabledFlag": false,
+            "feedbackEnabledFlag": true,
+            "loopBackNodeId": "5"
+          },
+          "outcomes": {
+            "success": "end"
+          },
+          "inputs": [
+            {
+              "id": "7_chatChannelInput",
+              "name": "chatChannelInput",
+              "type": "object",
+              "value": {
+                "messageTemplate": {
+                  "message": "{{$context.$nodes.MATCH_LEDGER_ID.$output.disambiguationMessage}}"
+                }
+              }
+            }
+          ],
+          "diagram": {
+            "x": 5450,
+            "y": 6316
+          }
+        },
+        {
+          "id": "3",
+          "code": "ASK_LEDGER_PERIOD",
+          "type": "HUMAN",
+          "metadata": {
+            "name": "Ask Ledger Period",
+            "description": "Asks the user for ledger and period when not stated upfront; loops back to the extractor.",
+            "channelType": "CHAT",
+            "approvalEnabledFlag": false,
+            "feedbackEnabledFlag": true,
+            "loopBackNodeId": "1"
+          },
+          "outcomes": {
+            "success": "end"
+          },
+          "inputs": [
+            {
+              "id": "3_chatChannelInput",
+              "name": "chatChannelInput",
+              "type": "object",
+              "value": {
+                "messageTemplate": {
+                  "message": "Which ledger and accounting period would you like to work with? For example: Vision Operations, AUG-25."
+                }
+              }
+            }
+          ],
+          "diagram": {
+            "x": 5900,
+            "y": 5650
+          }
+        },
+        {
+          "id": "10",
+          "code": "CLASSIFY_ACTIONS",
+          "type": "LLM",
+          "metadata": {
+            "name": "Classify Actions",
+            "description": "Classifies which of allocation/revaluation the user wants run."
+          },
+          "outcomes": {
+            "success": "11"
+          },
+          "inputs": [
+            {
+              "id": "10_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "Classify the user reply to a question about running the GL allocation process and/or the revaluation process. Reply text: {{$context.$nodes.ASK_ABOUT_ACTIONS.$feedbackReceived}}. Set runAllocation to true only if the user wants the allocation process run. Set runRevaluation to true only if the user wants the revaluation process run. Both can be true, both can be false (if the user says neither/no/stop), or just one can be true."
+            }
+          ],
+          "diagram": {
+            "x": 6750,
+            "y": 5000
+          },
+          "outputSpecification": "{\"type\":\"object\",\"properties\":{\"runAllocation\":{\"type\":\"boolean\"},\"runRevaluation\":{\"type\":\"boolean\"}}}"
+        },
+        {
+          "id": "11",
+          "code": "CHECK_RUN_ALLOCATION",
+          "type": "CONDITION",
+          "metadata": {
+            "name": "Check Run Allocation",
+            "description": "Branches to submit the allocation job when the user asked for it."
+          },
+          "outcomes": {
+            "true": "12",
+            "false": "14"
+          },
+          "inputs": [
+            {
+              "id": "11_condition",
+              "name": "condition",
+              "type": "string",
+              "value": "{{!!$context.$nodes.CLASSIFY_ACTIONS.$output.runAllocation}}"
+            }
+          ],
+          "diagram": {
+            "x": 6750,
+            "y": 5222
+          },
+          "convergenceTargetId": "14"
+        },
+        {
+          "id": "12",
+          "code": "SUBMIT_ALLOCATION",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Submit Allocation",
+            "description": "Submits the GL allocation ESS job. PLACEHOLDER: jobPackageName/jobDefName/essParams are not yet confirmed for this tenant - must be supplied by the GL admin before this step can succeed.",
+            "businessObjectCode": "ORA_FIN_GL_XX_ACCOUNTINGEXCEPTIONSESSJOBS",
+            "functionName": "submitEssJob"
+          },
+          "outcomes": {
+            "success": "13"
+          },
+          "inputs": [
+            {
+              "id": "12_jobPackageName",
+              "name": "jobPackageName",
+              "type": "string",
+              "value": "<GL_ALLOCATION_JOB_PACKAGE_NOT_CONFIRMED>"
+            },
+            {
+              "id": "12_jobDefName",
+              "name": "jobDefName",
+              "type": "string",
+              "value": "<GL_ALLOCATION_JOB_DEF_NOT_CONFIRMED>"
+            },
+            {
+              "id": "12_essParams",
+              "name": "essParams",
+              "type": "string",
+              "value": "<GL_ALLOCATION_ESS_PARAMS_NOT_CONFIRMED>"
+            }
+          ],
+          "diagram": {
+            "x": 6300,
+            "y": 5444
+          },
+          "outputSpecification": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"ReqstId\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"ReqstId\"\n  ],\n  \"additionalProperties\": false\n}"
+        },
+        {
+          "id": "13",
+          "code": "POLL_ALLOCATION",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Poll Allocation Status",
+            "description": "Checks the real status of the submitted allocation job by request id.",
+            "businessObjectCode": "ORA_FIN_GL_XX_ACCOUNTINGEXCEPTIONSESSJOBS",
+            "functionName": "getEssJobStatus"
+          },
+          "outcomes": {
+            "success": "14"
+          },
+          "inputs": [
+            {
+              "id": "13_requestId",
+              "name": "requestId",
+              "type": "string",
+              "value": "{{$context.$nodes.SUBMIT_ALLOCATION.$output.ReqstId}}"
+            }
+          ],
+          "diagram": {
+            "x": 6300,
+            "y": 5666
+          },
+          "outputSpecification": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"ReqstId\": {\n      \"type\": \"string\"\n    },\n    \"RequestStatus\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"ReqstId\",\n    \"RequestStatus\"\n  ],\n  \"additionalProperties\": false\n}"
+        },
+        {
+          "id": "14",
+          "code": "CHECK_RUN_REVALUATION",
+          "type": "CONDITION",
+          "metadata": {
+            "name": "Check Run Revaluation",
+            "description": "Branches to submit the revaluation job when the user asked for it."
+          },
+          "outcomes": {
+            "true": "15",
+            "false": "17"
+          },
+          "inputs": [
+            {
+              "id": "14_condition",
+              "name": "condition",
+              "type": "string",
+              "value": "{{!!$context.$nodes.CLASSIFY_ACTIONS.$output.runRevaluation}}"
+            }
+          ],
+          "diagram": {
+            "x": 6750,
+            "y": 5888
+          },
+          "convergenceTargetId": "17"
+        },
+        {
+          "id": "15",
+          "code": "SUBMIT_REVALUATION",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Submit Revaluation",
+            "description": "Submits the GL revaluation ESS job. PLACEHOLDER: jobPackageName/jobDefName/essParams are not yet confirmed for this tenant - must be supplied by the GL admin before this step can succeed.",
+            "businessObjectCode": "ORA_FIN_GL_XX_ACCOUNTINGEXCEPTIONSESSJOBS",
+            "functionName": "submitEssJob"
+          },
+          "outcomes": {
+            "success": "16"
+          },
+          "inputs": [
+            {
+              "id": "15_jobPackageName",
+              "name": "jobPackageName",
+              "type": "string",
+              "value": "<GL_REVALUATION_JOB_PACKAGE_NOT_CONFIRMED>"
+            },
+            {
+              "id": "15_jobDefName",
+              "name": "jobDefName",
+              "type": "string",
+              "value": "<GL_REVALUATION_JOB_DEF_NOT_CONFIRMED>"
+            },
+            {
+              "id": "15_essParams",
+              "name": "essParams",
+              "type": "string",
+              "value": "<GL_REVALUATION_ESS_PARAMS_NOT_CONFIRMED>"
+            }
+          ],
+          "diagram": {
+            "x": 6300,
+            "y": 6110
+          },
+          "outputSpecification": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"ReqstId\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"ReqstId\"\n  ],\n  \"additionalProperties\": false\n}"
+        },
+        {
+          "id": "16",
+          "code": "POLL_REVALUATION",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Poll Revaluation Status",
+            "description": "Checks the real status of the submitted revaluation job by request id.",
+            "businessObjectCode": "ORA_FIN_GL_XX_ACCOUNTINGEXCEPTIONSESSJOBS",
+            "functionName": "getEssJobStatus"
+          },
+          "outcomes": {
+            "success": "17"
+          },
+          "inputs": [
+            {
+              "id": "16_requestId",
+              "name": "requestId",
+              "type": "string",
+              "value": "{{$context.$nodes.SUBMIT_REVALUATION.$output.ReqstId}}"
+            }
+          ],
+          "diagram": {
+            "x": 6300,
+            "y": 6332
+          },
+          "outputSpecification": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"ReqstId\": {\n      \"type\": \"string\"\n    },\n    \"RequestStatus\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"ReqstId\",\n    \"RequestStatus\"\n  ],\n  \"additionalProperties\": false\n}"
+        },
+        {
+          "id": "17",
+          "code": "FINAL_RESPONSE",
+          "type": "LLM",
+          "metadata": {
+            "name": "Final Response",
+            "description": "Convergence terminal: verifies and reports the real outcome of whichever processes ran."
+          },
+          "outcomes": {
+            "success": "end"
+          },
+          "inputs": [
+            {
+              "id": "17_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "Generate a final status message for the user about this GL period-close request for ledger \"{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.ledgerName}}\" period {{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.periodName}}. Check {{$context.$nodes.CLASSIFY_ACTIONS.$output.runAllocation}} and {{$context.$nodes.CLASSIFY_ACTIONS.$output.runRevaluation}}. If both are false, acknowledge that no process was run and invite the user to say if they'd like to run allocation or revaluation later. Otherwise, examine the raw results below without assuming any of them succeeded. A genuinely successful ESS job submission contains a real request identifier (for example a ReqstId field), and once a status check ran, a status field showing something like SUCCEEDED, SUCCESS, COMPLETED, or WARNING. A still-running job's status check instead shows something like PROCESSING, RUNNING, or PENDING - report that step as submitted and still in progress, not as complete. A failed submission or status check instead contains fields such as title, an HTTP-style status code, or o:errorDetails, or otherwise lacks a request identifier. If runAllocation is true, cover the allocation step using submission result {{$context.$nodes.SUBMIT_ALLOCATION.$output}} and status check result {{$context.$nodes.POLL_ALLOCATION.$output}}. If runRevaluation is true, cover the revaluation step using submission result {{$context.$nodes.SUBMIT_REVALUATION.$output}} and status check result {{$context.$nodes.POLL_REVALUATION.$output}}. For each step that ran, state specifically whether it succeeded, is still running, or failed, based only on what its actual results contain. Never state that a step succeeded unless its result actually shows that. If any step failed, say plainly which one and include the actual error detail text from its result so the user can act on it - do not soften, hide, summarize away, or omit a failure. Tell the user that whatever was submitted was submitted directly with no separate approval step, regardless of the outcome. Keep the message concise but complete. Return only the final message text."
+            }
+          ],
+          "diagram": {
+            "x": 6750,
+            "y": 6554
+          }
+        },
+        {
+          "id": "end",
+          "code": "END",
+          "type": "END",
+          "metadata": {
+            "name": "End",
+            "description": "End of data pipeline"
+          },
+          "outcomes": {},
+          "inputs": [],
+          "diagram": {
+            "x": 5000,
+            "y": 5220
+          }
+        }
+      ],
+      "rootNode": "start",
+      "variables": [],
+      "errorHandlers": []
+    },
+    "modelConfiguration": null,
+    "humanApprovalFlag": true,
+    "waitFlag": false,
+    "triggers": [
+      {
+        "type": "REST",
+        "inputs": []
+      }
+    ],
+    "deletedTriggerTypes": [],
+    "answerInUserLanguage": false,
+    "userLanguagePrompt": "",
+    "chatExpTPFileUploadEnabledFlag": false,
+    "chatExpThirdPartyDetails": [],
+    "diagram": {
+      "orientation": "vertical",
+      "commentNodes": []
+    },
+    "defaultModelConfiguration": "ORA_MODEL_CONFIG_PREMIUM_OPEN_AI_GPT_4_1_MINI"
+  },
+  "status": "DRAFT",
+  "version": 86638878,
+  "family": "FIN",
+  "product": "GENERAL_LEDGER",
+  "ownerName": null,
+  "customFlag": false,
+  "seededFlag": false,
+  "isTemplate": false,
+  "hiddenFlag": false,
+  "useCaseId": "NA",
+  "accessModifier": "public",
+  "architecture": "data_pipeline",
+  "aiAppsCompatibleFlag": false,
+  "followupEnabledFlag": false,
+  "header": {
+    "ETag": "\"1\""
+  }
+}

@@ -1,0 +1,423 @@
+{
+  "testName": "run-both-processes",
+  "scenario": {
+    "custom": false,
+    "source": "sync-plan",
+    "id": "ASK_ABOUT_ACTIONS-feedback-conversation",
+    "kind": "conversation",
+    "intent": "User asks to run both the allocation and revaluation processes for a clean, unambiguous ledger and period; the agent resolves the ledger, confirms, and submits both processes with polled status verification."
+  },
+  "workflow": {
+    "workflowCode": "GL_PERIOD_CLOSE_AGENT"
+  },
+  "authoring": {
+    "source": "model-authored",
+    "createdAt": "2026-09-29T18:23:45.419Z",
+    "userPrompt": "Verify the agent resolves the ledger and, when the user asks for both allocation and revaluation, submits both with real status verification"
+  },
+  "defaults": {
+    "dataSource": "file",
+    "evaluationMode": "hybrid"
+  },
+  "conversation": {
+    "mode": "scripted",
+    "goal": "Verify the agent resolves the ledger, asks which processes to run, and on a request for both submits and verifies allocation and revaluation in order.",
+    "steps": [
+      {
+        "stepId": "request-both-processes",
+        "intent": "User asks to run allocation and revaluation for a ledger and period.",
+        "assertions": {
+          "contains": [],
+          "notContains": []
+        },
+        "pathAssertions": {
+          "mustExecute": [
+            {
+              "id": "extract-details-reached",
+              "name": "Request details are extracted",
+              "nodeCode": "EXTRACT_REQUEST_DETAILS"
+            },
+            {
+              "id": "ledger-period-checked",
+              "name": "Ledger/period presence is checked",
+              "nodeCode": "CHECK_LEDGER_PERIOD_PROVIDED"
+            },
+            {
+              "id": "ledger-resolved",
+              "name": "Ledger LOV is fetched",
+              "nodeCode": "RESOLVE_LEDGER_ID"
+            },
+            {
+              "id": "ledger-matched",
+              "name": "Ledger name is matched",
+              "nodeCode": "MATCH_LEDGER_ID"
+            },
+            {
+              "id": "ledger-match-checked",
+              "name": "Ledger match is checked",
+              "nodeCode": "CHECK_LEDGER_MATCHED"
+            },
+            {
+              "id": "confirm-and-ask-reached",
+              "name": "Confirmation and action question is generated",
+              "nodeCode": "CONFIRM_LEDGER_AND_ASK_ACTIONS"
+            },
+            {
+              "id": "actions-wait-reached",
+              "name": "Actions decision wait is reached",
+              "nodeCode": "ASK_ABOUT_ACTIONS"
+            }
+          ],
+          "mustNotExecute": [
+            {
+              "id": "ledger-period-wait-not-needed",
+              "name": "Ledger/period clarification is not needed",
+              "nodeCode": "ASK_LEDGER_PERIOD"
+            },
+            {
+              "id": "ledger-disambiguation-not-needed",
+              "name": "Ledger disambiguation is not needed",
+              "nodeCode": "ASK_LEDGER_DISAMBIGUATION"
+            },
+            {
+              "id": "classify-not-yet-run",
+              "name": "Actions are not classified yet",
+              "nodeCode": "CLASSIFY_ACTIONS"
+            },
+            {
+              "id": "allocation-not-yet-submitted",
+              "name": "Allocation is not submitted yet",
+              "nodeCode": "SUBMIT_ALLOCATION"
+            },
+            {
+              "id": "revaluation-not-yet-submitted",
+              "name": "Revaluation is not submitted yet",
+              "nodeCode": "SUBMIT_REVALUATION"
+            },
+            {
+              "id": "final-response-not-yet-returned",
+              "name": "Final response has not been generated yet",
+              "nodeCode": "FINAL_RESPONSE"
+            },
+            {
+              "id": "request-both-processes-path-must-not-execute-check_run_allocation",
+              "name": "CHECK_RUN_ALLOCATION does not execute",
+              "nodeCode": "CHECK_RUN_ALLOCATION"
+            },
+            {
+              "id": "request-both-processes-path-must-not-execute-poll_allocation",
+              "name": "POLL_ALLOCATION does not execute",
+              "nodeCode": "POLL_ALLOCATION"
+            },
+            {
+              "id": "request-both-processes-path-must-not-execute-check_run_revaluation",
+              "name": "CHECK_RUN_REVALUATION does not execute",
+              "nodeCode": "CHECK_RUN_REVALUATION"
+            },
+            {
+              "id": "request-both-processes-path-must-not-execute-poll_revaluation",
+              "name": "POLL_REVALUATION does not execute",
+              "nodeCode": "POLL_REVALUATION"
+            }
+          ]
+        },
+        "executionAssertions": {
+          "orderedNodeCodes": {
+            "id": "initial-request-node-order",
+            "name": "Initial request resolves the ledger and reaches the actions wait in order",
+            "nodeCodes": [
+              "EXTRACT_REQUEST_DETAILS",
+              "CHECK_LEDGER_PERIOD_PROVIDED",
+              "RESOLVE_LEDGER_ID",
+              "MATCH_LEDGER_ID",
+              "CHECK_LEDGER_MATCHED",
+              "CONFIRM_LEDGER_AND_ASK_ACTIONS",
+              "ASK_ABOUT_ACTIONS"
+            ]
+          },
+          "nodeCounts": {
+            "ASK_ABOUT_ACTIONS": {
+              "id": "single-actions-suspension",
+              "name": "Actions wait suspends once",
+              "exact": 1
+            }
+          }
+        },
+        "testData": {
+          "status": "ready",
+          "capturePolicy": "model-generated",
+          "nodes": {
+            "RESOLVE_LEDGER_ID": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "items": [
+                  {
+                    "LedgerId": "300100001",
+                    "LedgerName": "Vision Operations"
+                  },
+                  {
+                    "LedgerId": "300100002",
+                    "LedgerName": "Lookahead CA PL USGAAP CAD"
+                  }
+                ],
+                "hasMore": false,
+                "count": 2
+              }
+            }
+          }
+        },
+        "expectedWait": {
+          "id": "actions-decision-awaited",
+          "name": "Agent waits for the user's process selection",
+          "nodeCode": "ASK_ABOUT_ACTIONS",
+          "nodeType": "HUMAN",
+          "channelType": "CHAT",
+          "allowedActions": [
+            "feedback"
+          ]
+        },
+        "type": "chat",
+        "input": {
+          "message": "For Vision Operations, period AUG-25, please run allocation and revaluation."
+        }
+      },
+      {
+        "stepId": "confirm-run-both",
+        "intent": "User confirms running both allocation and revaluation.",
+        "contextStepIds": [
+          "request-both-processes"
+        ],
+        "assertions": {
+          "contains": [],
+          "notContains": []
+        },
+        "pathAssertions": {
+          "mustExecute": [
+            {
+              "id": "actions-classified",
+              "name": "Actions are classified",
+              "nodeCode": "CLASSIFY_ACTIONS"
+            },
+            {
+              "id": "allocation-checked",
+              "name": "Allocation branch is checked",
+              "nodeCode": "CHECK_RUN_ALLOCATION"
+            },
+            {
+              "id": "allocation-submitted",
+              "name": "Allocation is submitted",
+              "nodeCode": "SUBMIT_ALLOCATION"
+            },
+            {
+              "id": "allocation-polled",
+              "name": "Allocation status is polled",
+              "nodeCode": "POLL_ALLOCATION"
+            },
+            {
+              "id": "revaluation-checked",
+              "name": "Revaluation branch is checked",
+              "nodeCode": "CHECK_RUN_REVALUATION"
+            },
+            {
+              "id": "revaluation-submitted",
+              "name": "Revaluation is submitted",
+              "nodeCode": "SUBMIT_REVALUATION"
+            },
+            {
+              "id": "revaluation-polled",
+              "name": "Revaluation status is polled",
+              "nodeCode": "POLL_REVALUATION"
+            },
+            {
+              "id": "final-response-returned",
+              "name": "Final response is returned",
+              "nodeCode": "FINAL_RESPONSE"
+            }
+          ],
+          "mustNotExecute": [
+            {
+              "id": "extract-details-not-repeated",
+              "name": "Request details are not extracted again",
+              "nodeCode": "EXTRACT_REQUEST_DETAILS"
+            },
+            {
+              "id": "ledger-not-reresolved",
+              "name": "Ledger is not re-resolved",
+              "nodeCode": "RESOLVE_LEDGER_ID"
+            },
+            {
+              "id": "ledger-not-rematched",
+              "name": "Ledger is not re-matched",
+              "nodeCode": "MATCH_LEDGER_ID"
+            },
+            {
+              "id": "actions-wait-not-repeated",
+              "name": "Actions wait does not repeat",
+              "nodeCode": "ASK_ABOUT_ACTIONS"
+            },
+            {
+              "id": "confirm-run-both-path-must-not-execute-check_ledger_period_provided",
+              "name": "CHECK_LEDGER_PERIOD_PROVIDED does not execute",
+              "nodeCode": "CHECK_LEDGER_PERIOD_PROVIDED"
+            },
+            {
+              "id": "confirm-run-both-path-must-not-execute-check_ledger_matched",
+              "name": "CHECK_LEDGER_MATCHED does not execute",
+              "nodeCode": "CHECK_LEDGER_MATCHED"
+            },
+            {
+              "id": "confirm-run-both-path-must-not-execute-confirm_ledger_and_ask_actions",
+              "name": "CONFIRM_LEDGER_AND_ASK_ACTIONS does not execute",
+              "nodeCode": "CONFIRM_LEDGER_AND_ASK_ACTIONS"
+            },
+            {
+              "id": "confirm-run-both-path-must-not-execute-ask_ledger_disambiguation",
+              "name": "ASK_LEDGER_DISAMBIGUATION does not execute",
+              "nodeCode": "ASK_LEDGER_DISAMBIGUATION"
+            },
+            {
+              "id": "confirm-run-both-path-must-not-execute-ask_ledger_period",
+              "name": "ASK_LEDGER_PERIOD does not execute",
+              "nodeCode": "ASK_LEDGER_PERIOD"
+            }
+          ]
+        },
+        "executionAssertions": {
+          "orderedNodeCodes": {
+            "id": "resume-node-order",
+            "name": "Resume runs allocation then revaluation with status polling, in order",
+            "nodeCodes": [
+              "CLASSIFY_ACTIONS",
+              "CHECK_RUN_ALLOCATION",
+              "SUBMIT_ALLOCATION",
+              "POLL_ALLOCATION",
+              "CHECK_RUN_REVALUATION",
+              "SUBMIT_REVALUATION",
+              "POLL_REVALUATION",
+              "FINAL_RESPONSE"
+            ]
+          },
+          "nodeCounts": {
+            "FINAL_RESPONSE": {
+              "id": "single-final-response",
+              "name": "Final response is generated once",
+              "exact": 1
+            }
+          }
+        },
+        "judge": {
+          "minimumScore": 4,
+          "expectedOutcome": "A final message that examines the actual submission and status-check results for both allocation and revaluation and reports what they actually show, without assuming success, and states these were submitted directly with no separate approval step.",
+          "rubric": [
+            {
+              "id": "grounded-in-replayed-data",
+              "name": "Grounded in replayed data",
+              "criterion": "The output is grounded in the replayed test data."
+            },
+            {
+              "id": "covers-both-processes",
+              "name": "Covers both processes",
+              "criterion": "The message addresses both the allocation and revaluation steps."
+            },
+            {
+              "id": "reports-real-status",
+              "name": "Reports status rather than assuming it",
+              "criterion": "The message reflects the actual status values from the results rather than a blanket assumption of success."
+            }
+          ]
+        },
+        "testData": {
+          "status": "ready",
+          "capturePolicy": "model-generated",
+          "nodes": {
+            "SUBMIT_ALLOCATION": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "title": "Bad Request",
+                "status": 400,
+                "o:errorDetails": [
+                  {
+                    "detail": "Job package or definition not found: <GL_ALLOCATION_JOB_PACKAGE_NOT_CONFIRMED>"
+                  }
+                ]
+              }
+            },
+            "POLL_ALLOCATION": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "title": "Bad Request",
+                "status": 400
+              }
+            },
+            "SUBMIT_REVALUATION": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "title": "Bad Request",
+                "status": 400,
+                "o:errorDetails": [
+                  {
+                    "detail": "Job package or definition not found: <GL_REVALUATION_JOB_PACKAGE_NOT_CONFIRMED>"
+                  }
+                ]
+              }
+            },
+            "POLL_REVALUATION": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "title": "Bad Request",
+                "status": 400
+              }
+            }
+          }
+        },
+        "type": "resume",
+        "resume": {
+          "waitStepId": "request-both-processes",
+          "action": "feedback",
+          "content": "Yes, please run both allocation and revaluation."
+        }
+      }
+    ],
+    "executionAssertions": {
+      "waitLifecycles": [
+        {
+          "id": "actions-decision-lifecycle",
+          "name": "Actions decision wait suspends and resumes once",
+          "waitNodeCode": "ASK_ABOUT_ACTIONS",
+          "expectedSuspensions": 1,
+          "expectedResumptions": 1
+        }
+      ]
+    }
+  }
+}
