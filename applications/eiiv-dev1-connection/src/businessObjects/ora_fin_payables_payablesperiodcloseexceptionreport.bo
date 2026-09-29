@@ -1,0 +1,49 @@
+{
+  "supportedObjectId": "300000049836575",
+  "name": "Payables Period Close Exception Report",
+  "description": "Fetches all Payables invoices in Unaccounted or Needs Validation status.",
+  "objectCode": "ORA_FIN_PAYABLES_PAYABLESPERIODCLOSEEXCEPTIONREPORT",
+  "family": "FIN",
+  "product": "PAYABLES",
+  "objectSource": "ADF_BC",
+  "restResourcePath": "/fscmRestApi/resources/11.13.18.05/invoices",
+  "seededFlag": false,
+  "mandatoryFlag": false,
+  "objectProperties": {
+    "jsonSchemaName": "supportedObjectProperties",
+    "jsonSchemaVersion": 1,
+    "tools": [
+      {
+        "name": "getall_invoices",
+        "description": "Get all Payables invoices in Unaccounted or Needs Validation status. Tenant-wide fixed query, not filtered by ledger or period.",
+        "operationType": "GET",
+        "resourcePath": "/fscmRestApi/resources/11.13.18.05/invoices?q=AccountingStatus='Unaccounted' or ValidationStatus='Needs Validation'",
+        "resourceType": "ADF_BC_FIXED_QUERY",
+        "useNativeAuthentication": true,
+        "type": "BUS_OBJECT",
+        "parameterDefinitions": [],
+        "headers": {
+          "REST-Framework-Version": "4"
+        },
+        "sampleQueries": [
+          {
+            "description": "Illustrative response shape.",
+            "query": {
+              "items": [
+                {
+                  "InvoiceId": 300100999111111,
+                  "InvoiceNumber": "INV-0001",
+                  "InvoiceAmount": 1000,
+                  "AccountingStatus": "Unaccounted"
+                }
+              ],
+              "count": 1,
+              "hasMore": false
+            },
+            "sampleType": "response"
+          }
+        ]
+      }
+    ]
+  }
+}

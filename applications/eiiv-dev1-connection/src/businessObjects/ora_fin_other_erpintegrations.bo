@@ -1,0 +1,93 @@
+{
+  "supportedObjectId": "300000049836577",
+  "name": "ERP Integrations",
+  "description": "Submit and monitor generic ESS job requests via the ERP Integrations REST resource.",
+  "objectCode": "ORA_FIN_OTHER_ERPINTEGRATIONS",
+  "family": "FIN",
+  "product": "OTHER",
+  "objectSource": "HCM_SEARCH",
+  "restResourcePath": "/fscmRestApi/resources/11.13.18.05/erpintegrations",
+  "seededFlag": false,
+  "mandatoryFlag": false,
+  "objectProperties": {
+    "jsonSchemaName": "supportedObjectProperties",
+    "jsonSchemaVersion": 1,
+    "tools": [
+      {
+        "name": "CreateAccountingJob",
+        "description": "Submit Create Accounting Job",
+        "operationType": "POST",
+        "resourcePath": "/fscmRestApi/resources/11.13.18.05/erpintegrations",
+        "resourceType": "HCM_SEARCH",
+        "bodyTemplate": "{\n    \"OperationName\": \"submitESSJobRequest\",\n    \"JobPackageName\": \"/oracle/apps/ess/financials/subledgerAccounting/shared/\",\n    \"JobDefName\": \"XLAFSNAPRPTC\",\n    \"ESSParameters\": \"#NULL,#NULL,260,{p_ledger_id},#NULL,{p_end_date},Y,F,N,D,Y,Y,#NULL,#NULL,N,#NULL,#NULL,#NULL,#NULL,#NULL,#NULL,#NULL,#NULL,#NULL,#NULL\"\n}",
+        "useNativeAuthentication": true,
+        "type": "BUS_OBJECT",
+        "parameterDefinitions": [
+          {
+            "name": "p_ledger_id",
+            "dataType": "string",
+            "description": "Ledger ID",
+            "id": 2,
+            "isToken": true,
+            "location": "body",
+            "source": "placeholder",
+            "defaultValue": ""
+          },
+          {
+            "name": "p_end_date",
+            "dataType": "date",
+            "description": "End date parameter",
+            "id": 3,
+            "isToken": true,
+            "location": "body",
+            "source": "placeholder",
+            "defaultValue": ""
+          }
+        ],
+        "sampleQueries": [
+          {
+            "description": "Illustrative response shape.",
+            "query": {
+              "ReqstId": "900100201"
+            },
+            "sampleType": "response"
+          }
+        ]
+      },
+      {
+        "name": "GetESSJobStatus",
+        "description": "Get ESS Job Status",
+        "operationType": "GET",
+        "resourcePath": "/fscmRestApi/resources/11.13.18.05/erpintegrations?finder=ESSJobStatusRF;requestId={p_request_id}",
+        "resourceType": "HCM_SEARCH",
+        "useNativeAuthentication": true,
+        "type": "BUS_OBJECT",
+        "parameterDefinitions": [
+          {
+            "name": "p_request_id",
+            "dataType": "string",
+            "description": "Request ID",
+            "id": 6,
+            "isToken": true,
+            "location": "query",
+            "source": "placeholder",
+            "defaultValue": ""
+          }
+        ],
+        "headers": {
+          "Content-Type": "application/vnd.oracle.adf.resourceitem+json"
+        },
+        "sampleQueries": [
+          {
+            "description": "Illustrative response shape.",
+            "query": {
+              "ReqstId": "900100201",
+              "RequestStatus": "SUCCEEDED"
+            },
+            "sampleType": "response"
+          }
+        ]
+      }
+    ]
+  }
+}
