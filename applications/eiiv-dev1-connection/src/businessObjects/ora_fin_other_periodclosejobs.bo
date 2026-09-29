@@ -1,0 +1,151 @@
+{
+  "supportedObjectId": "300000049834694",
+  "name": "Period Close Jobs",
+  "description": "Payables period-close ESS jobs: open period, close period, and the unaccounted-transactions sweep.",
+  "objectCode": "ORA_FIN_OTHER_PERIODCLOSEJOBS",
+  "family": "FIN",
+  "product": "OTHER",
+  "objectSource": "ADF_BC",
+  "restResourcePath": "/fscmRestApi/resources/11.13.18.05/erpintegrations",
+  "seededFlag": false,
+  "mandatoryFlag": false,
+  "objectProperties": {
+    "jsonSchemaName": "supportedObjectProperties",
+    "jsonSchemaVersion": 1,
+    "tools": [
+      {
+        "name": "OpenPayablesPeriod",
+        "description": "Open Payables Accounting Period",
+        "operationType": "POST",
+        "resourcePath": "/fscmRestApi/resources/11.13.18.05/erpintegrations",
+        "resourceType": "ADF_BC_FIXED_QUERY",
+        "bodyTemplate": "{\n\"OperationName\": \"submitESSJobRequest\",\n\"JobPackageName\": \"/oracle/apps/ess/financials/payables/shared/\",\n\"JobDefName\": \"Apoap\",\n\"ESSParameters\": \"'{pLedgerId}','{pLedgerId}','{pPeriodName}',O\"\n}",
+        "useNativeAuthentication": true,
+        "type": "BUS_OBJECT",
+        "parameterDefinitions": [
+          {
+            "name": "pLedgerId",
+            "dataType": "string",
+            "description": "Ledger ID",
+            "id": 2,
+            "isToken": true,
+            "location": "body",
+            "source": "placeholder",
+            "defaultValue": ""
+          },
+          {
+            "name": "pPeriodName",
+            "dataType": "string",
+            "description": "Period Name",
+            "id": 3,
+            "isToken": true,
+            "location": "body",
+            "source": "placeholder",
+            "defaultValue": ""
+          }
+        ],
+        "sampleQueries": [
+          {
+            "description": "Illustrative response shape.",
+            "query": {
+              "ReqstId": "900100211"
+            },
+            "sampleType": "response"
+          }
+        ]
+      },
+      {
+        "name": "ClosePayablePeriod",
+        "description": "Close Payables Accounting Period",
+        "operationType": "POST",
+        "resourcePath": "/fscmRestApi/resources/11.13.18.05/erpintegrations",
+        "resourceType": "ADF_BC_FIXED_QUERY",
+        "bodyTemplate": "{\n\"OperationName\": \"submitESSJobRequest\",\n\"JobPackageName\": \"/oracle/apps/ess/financials/payables/shared/\",\n\"JobDefName\": \"Apcap\",\n\"ESSParameters\": \"'{pLedgerId}',,'{pPeriodName}',C\"\n}",
+        "useNativeAuthentication": true,
+        "type": "BUS_OBJECT",
+        "parameterDefinitions": [
+          {
+            "name": "pLedgerId",
+            "dataType": "string",
+            "description": "Ledger ID",
+            "id": 6,
+            "isToken": true,
+            "location": "body",
+            "source": "placeholder",
+            "defaultValue": ""
+          },
+          {
+            "name": "pPeriodName",
+            "dataType": "string",
+            "description": "Period Name",
+            "id": 7,
+            "isToken": true,
+            "location": "body",
+            "source": "placeholder",
+            "defaultValue": ""
+          }
+        ],
+        "sampleQueries": [
+          {
+            "description": "Illustrative response shape.",
+            "query": {
+              "ReqstId": "900100212"
+            },
+            "sampleType": "response"
+          }
+        ]
+      },
+      {
+        "name": "unaccountedTransactionsbyLedger",
+        "description": "Payables Unaccounted Transactions and Sweep Report",
+        "operationType": "POST",
+        "resourcePath": "/fscmRestApi/resources/11.13.18.05/erpintegrations",
+        "resourceType": "ADF_BC_FIXED_QUERY",
+        "bodyTemplate": "{\n\"OperationName\": \"submitESSJobRequest\",\n\"JobPackageName\": \"/oracle/apps/ess/financials/payables/shared/\",\n\"JobDefName\": \"APXUATR\",\n\"ESSParameters\": \"1000,'{pLedgerId}',,,'{pPeriodName}',Y,'{pSweepPeriod}'\"\n}",
+        "useNativeAuthentication": true,
+        "type": "BUS_OBJECT",
+        "parameterDefinitions": [
+          {
+            "name": "pLedgerId",
+            "dataType": "string",
+            "description": "Ledger Id",
+            "id": 10,
+            "isToken": true,
+            "location": "body",
+            "source": "placeholder",
+            "defaultValue": ""
+          },
+          {
+            "name": "pPeriodName",
+            "dataType": "string",
+            "description": "Period Name",
+            "id": 11,
+            "isToken": true,
+            "location": "body",
+            "source": "placeholder",
+            "defaultValue": ""
+          },
+          {
+            "name": "pSweepPeriod",
+            "dataType": "string",
+            "description": "Sweep Period",
+            "id": 12,
+            "isToken": true,
+            "location": "body",
+            "source": "placeholder",
+            "defaultValue": ""
+          }
+        ],
+        "sampleQueries": [
+          {
+            "description": "Illustrative response shape.",
+            "query": {
+              "ReqstId": "900100213"
+            },
+            "sampleType": "response"
+          }
+        ]
+      }
+    ]
+  }
+}

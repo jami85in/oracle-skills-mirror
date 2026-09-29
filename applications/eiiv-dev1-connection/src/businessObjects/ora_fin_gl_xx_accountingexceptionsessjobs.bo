@@ -1,0 +1,100 @@
+{
+  "supportedObjectId": "300000049856750",
+  "name": "Accounting Exceptions ESS Jobs",
+  "description": "Submits and monitors generic ESS job requests for General Ledger accounting-exception remediation processes.",
+  "objectCode": "ORA_FIN_GL_XX_ACCOUNTINGEXCEPTIONSESSJOBS",
+  "family": "FIN",
+  "product": "GENERAL_LEDGER",
+  "objectSource": "HCM_SEARCH",
+  "restResourcePath": "/fscmRestApi/resources/11.13.18.05/erpintegrations",
+  "seededFlag": false,
+  "mandatoryFlag": false,
+  "objectProperties": {
+    "jsonSchemaName": "supportedObjectProperties",
+    "jsonSchemaVersion": 1,
+    "tools": [
+      {
+        "name": "submitEssJob",
+        "description": "Submits a generic ESS job request for a General Ledger accounting-exception remediation process. Caller supplies the exact job package/definition name and ESS parameter string.",
+        "operationType": "POST",
+        "resourcePath": "/fscmRestApi/resources/11.13.18.05/erpintegrations",
+        "resourceType": "HCM_SEARCH",
+        "bodyTemplate": "{\n\"OperationName\": \"submitESSJobRequest\",\n\"JobPackageName\": \"{jobPackageName}\",\n\"JobDefName\": \"{jobDefName}\",\n\"ESSParameters\": \"{essParams}\"\n}",
+        "useNativeAuthentication": true,
+        "type": "BUS_OBJECT",
+        "parameterDefinitions": [
+          {
+            "name": "jobPackageName",
+            "dataType": "string",
+            "description": "Full ESS job package path, e.g. /oracle/apps/ess/financials/...",
+            "id": 2,
+            "isToken": true,
+            "location": "body",
+            "source": "placeholder",
+            "defaultValue": ""
+          },
+          {
+            "name": "jobDefName",
+            "dataType": "string",
+            "description": "ESS job definition short name",
+            "id": 3,
+            "isToken": true,
+            "location": "body",
+            "source": "placeholder",
+            "defaultValue": ""
+          },
+          {
+            "name": "essParams",
+            "dataType": "string",
+            "description": "Comma-separated ESS parameter string for this job",
+            "id": 4,
+            "isToken": true,
+            "location": "body",
+            "source": "placeholder",
+            "defaultValue": ""
+          }
+        ],
+        "sampleQueries": [
+          {
+            "description": "Illustrative response shape.",
+            "query": {
+              "ReqstId": "900100301"
+            },
+            "sampleType": "response"
+          }
+        ]
+      },
+      {
+        "name": "getEssJobStatus",
+        "description": "Retrieves the current status of an ESS job request by request id.",
+        "operationType": "GET",
+        "resourcePath": "/fscmRestApi/resources/11.13.18.05/erpintegrations?finder=ESSJobStatusRF;requestId={requestId}",
+        "resourceType": "HCM_SEARCH",
+        "useNativeAuthentication": true,
+        "type": "BUS_OBJECT",
+        "parameterDefinitions": [
+          {
+            "name": "requestId",
+            "dataType": "string",
+            "description": "Request ID",
+            "id": 7,
+            "isToken": true,
+            "location": "query",
+            "source": "placeholder",
+            "defaultValue": ""
+          }
+        ],
+        "sampleQueries": [
+          {
+            "description": "Illustrative response shape.",
+            "query": {
+              "ReqstId": "900100301",
+              "RequestStatus": "SUCCEEDED"
+            },
+            "sampleType": "response"
+          }
+        ]
+      }
+    ]
+  }
+}

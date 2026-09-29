@@ -1,0 +1,735 @@
+{
+  "workflowId": "300000142045074",
+  "workflowCode": "AP_PERIOD_CLOSE_AGENT",
+  "name": "AP Period Close Agent",
+  "description": "Checks AP invoices/holds that could block period close, asks the user how to handle any found, then opens the next period, runs Create Accounting, and closes the current period.",
+  "specification": {
+    "jsonSchemaName": "Workflow.spec",
+    "jsonSchemaVersion": "1",
+    "inputs": [],
+    "outputSpecification": " ",
+    "agentsValueMappings": [],
+    "dataPipeline": {
+      "pipelineNodes": [
+        {
+          "id": "start",
+          "code": "START",
+          "type": "START",
+          "metadata": {
+            "name": "Start",
+            "description": "Start of data pipeline"
+          },
+          "outcomes": {
+            "success": "1"
+          },
+          "inputs": [],
+          "diagram": {
+            "x": 5450,
+            "y": 5000
+          }
+        },
+        {
+          "id": "1",
+          "code": "EXTRACT_REQUEST_DETAILS",
+          "type": "LLM",
+          "metadata": {
+            "name": "Extract Request Details",
+            "description": "Extracts ledger, period, next period, and estimated period date range from the user's message."
+          },
+          "outcomes": {
+            "success": "19"
+          },
+          "inputs": [
+            {
+              "id": "1_systemPrompt",
+              "name": "systemPrompt",
+              "type": "string",
+              "value": "You extract structured period-close request details for an Accounts Payable period-close agent. Always return ledgerName, periodName, nextPeriodName, startDate, and endDate."
+            },
+            {
+              "id": "1_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "Extract the ledger name and accounting period being referenced for an AP period close request from this message: {{$context.$system.$inputMessage}}. If this message does not clearly state the ledger and/or period, but a prior clarification reply is available, use it instead or in addition: {{$context.$nodes.ASK_LEDGER_PERIOD.$feedbackReceived}}. Also compute the next calendar period name in the same MON-YY style, and estimate the ISO start date and end date (YYYY-MM-DD) of the referenced period's calendar month. Return only the structured fields requested. If ledger or period still cannot be determined, return empty strings for the unknown fields rather than guessing."
+            }
+          ],
+          "diagram": {
+            "x": 5450,
+            "y": 5206
+          },
+          "outputSpecification": "{\"type\":\"object\",\"properties\":{\"ledgerName\":{\"type\":\"string\"},\"periodName\":{\"type\":\"string\"},\"nextPeriodName\":{\"type\":\"string\"},\"startDate\":{\"type\":\"string\"},\"endDate\":{\"type\":\"string\"}}}\n"
+        },
+        {
+          "id": "19",
+          "code": "CHECK_LEDGER_PERIOD_PROVIDED",
+          "type": "CONDITION",
+          "metadata": {
+            "name": "Check Ledger Period Provided",
+            "description": "Branches to ask for ledger/period when the initial message did not include them."
+          },
+          "outcomes": {
+            "false": "18",
+            "true": "15"
+          },
+          "inputs": [
+            {
+              "id": "19_condition",
+              "name": "condition",
+              "type": "string",
+              "value": "{{!!$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.ledgerName && !!$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.periodName}}"
+            }
+          ],
+          "diagram": {
+            "x": 5450,
+            "y": 5428
+          },
+          "convergenceTargetId": "end"
+        },
+        {
+          "id": "18",
+          "code": "ASK_LEDGER_PERIOD",
+          "type": "HUMAN",
+          "metadata": {
+            "name": "Ask Ledger Period",
+            "description": "Asks the user for ledger and period when not stated upfront; loops back to the extractor.",
+            "channelType": "CHAT",
+            "approvalEnabledFlag": false,
+            "feedbackEnabledFlag": true,
+            "loopBackNodeId": "1"
+          },
+          "outcomes": {
+            "success": "end"
+          },
+          "inputs": [
+            {
+              "id": "18_chatChannelInput",
+              "name": "chatChannelInput",
+              "type": "object",
+              "value": {
+                "messageTemplate": {
+                  "message": "Which ledger and accounting period would you like to close? For example: Vision Operations, AUG-25."
+                }
+              }
+            }
+          ],
+          "diagram": {
+            "x": 5900,
+            "y": 5650
+          }
+        },
+        {
+          "id": "15",
+          "code": "RESOLVE_LEDGER_ID",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Resolve Ledger Id",
+            "description": "Fetches the full ledger LOV to resolve the extracted ledger name to a real ledger id.",
+            "businessObjectCode": "ORA_FIN_GENERALLED_GLLEDGERS",
+            "functionName": "getall_dataAccessSetLedgersLOV"
+          },
+          "outcomes": {
+            "success": "16"
+          },
+          "inputs": [],
+          "diagram": {
+            "x": 5225,
+            "y": 5650
+          },
+          "outputSpecification": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"totalResults\": {\n      \"type\": \"integer\"\n    },\n    \"count\": {\n      \"type\": \"integer\"\n    },\n    \"hasMore\": {\n      \"type\": \"boolean\"\n    },\n    \"limit\": {\n      \"type\": \"integer\"\n    },\n    \"offset\": {\n      \"type\": \"integer\"\n    },\n    \"links\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"href\": {\n            \"type\": \"string\"\n          },\n          \"rel\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"self\",\n              \"lov\",\n              \"parent\",\n              \"canonical\",\n              \"child\",\n              \"enclosure\",\n              \"action\",\n              \"custom\"\n            ]\n          },\n          \"name\": {\n            \"type\": \"string\"\n          },\n          \"kind\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"collection\",\n              \"item\",\n              \"describe\",\n              \"other\"\n            ]\n          }\n        },\n        \"additionalProperties\": false\n      }\n    },\n    \"items\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"@context\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"key\": {\n                \"type\": \"string\"\n              },\n              \"headers\": {\n                \"type\": \"object\",\n                \"properties\": {\n                  \"ETag\": {\n                    \"type\": \"string\"\n                  }\n                },\n                \"additionalProperties\": false\n              },\n              \"links\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"href\": {\n                      \"type\": \"string\"\n                    },\n                    \"rel\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"self\",\n                        \"lov\",\n                        \"parent\",\n                        \"canonical\",\n                        \"child\",\n                        \"enclosure\",\n                        \"action\",\n                        \"custom\"\n                      ]\n                    },\n                    \"name\": {\n                      \"type\": \"string\"\n                    },\n                    \"kind\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"collection\",\n                        \"item\",\n                        \"describe\",\n                        \"other\"\n                      ]\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              }\n            },\n            \"additionalProperties\": false\n          },\n          \"AccessSetId\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"BigInt\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"LedgerId\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"BigInt\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"AccountedPeriodType\": {\n            \"type\": \"string\"\n          },\n          \"ChartOfAccountsId\": {\n            \"type\": \"string\",\n            \"format\": \"BigInt\"\n          },\n          \"EnableBudgetaryControlFlag\": {\n            \"type\": \"boolean\"\n          },\n          \"ObjectTypeCode\": {\n            \"type\": \"string\"\n          },\n          \"PeriodSetName\": {\n            \"type\": \"string\"\n          },\n          \"Name\": {\n            \"type\": \"string\"\n          },\n          \"Description\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"LedgerCategoryCode\": {\n            \"type\": \"string\"\n          },\n          \"BalSegColumnName\": {\n            \"type\": \"string\"\n          },\n          \"ShortName\": {\n            \"type\": \"string\"\n          },\n          \"LookupCode\": {\n            \"type\": \"string\"\n          },\n          \"LookupType\": {\n            \"type\": \"string\"\n          },\n          \"Meaning\": {\n            \"type\": \"string\"\n          },\n          \"LedgerSetIds\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          }\n        },\n        \"additionalProperties\": false\n      }\n    }\n  },\n  \"additionalProperties\": false,\n  \"required\": [\n    \"count\",\n    \"hasMore\",\n    \"limit\",\n    \"offset\",\n    \"links\"\n  ]\n}"
+        },
+        {
+          "id": "16",
+          "code": "MATCH_LEDGER_ID",
+          "type": "LLM",
+          "metadata": {
+            "name": "Match Ledger Id",
+            "description": "Matches the extracted ledger name against the fetched ledger LOV to find the real ledger id."
+          },
+          "outcomes": {
+            "success": "21"
+          },
+          "inputs": [
+            {
+              "id": "16_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "Find the ledger the user means. The user's original ledger text was \"{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.ledgerName}}\". If a disambiguation reply is available, it takes priority over the original text: {{$context.$nodes.ASK_LEDGER_DISAMBIGUATION.$feedbackReceived}}. Match whichever of those is present (prefer the disambiguation reply if both are present) against this ledger list: {{$context.$nodes.RESOLVE_LEDGER_ID.$output}}. If exactly one ledger is a clear, confident match (exact name, or an unambiguous case/wording variant), return its numeric id as ledgerId, set matched to true, and leave candidates and disambiguationMessage empty. If the text could plausibly refer to two or more ledgers, or matches none exactly but resembles some (for example a partial name, abbreviation, or currency code), set matched to false, leave ledgerId empty, list up to 6 full exact ledger names that plausibly match as candidates, and write disambiguationMessage as a short message that lists those candidate ledger names and asks the user to reply with the exact ledger name from the list (and reconfirm the period name). If nothing plausible matches at all, set matched to false, leave candidates empty, and write disambiguationMessage explaining that no matching ledger was found and asking the user to re-check the ledger name."
+            }
+          ],
+          "diagram": {
+            "x": 5225,
+            "y": 5872
+          },
+          "outputSpecification": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"ledgerId\": {\"type\": \"string\"},\n    \"matched\": {\"type\": \"boolean\"},\n    \"candidates\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}},\n    \"disambiguationMessage\": {\"type\": \"string\"}\n  }\n}\n"
+        },
+        {
+          "id": "21",
+          "code": "CHECK_LEDGER_MATCHED",
+          "type": "CONDITION",
+          "metadata": {
+            "name": "Check Ledger Matched",
+            "description": "Branches to disambiguation when the ledger name could not be confidently matched."
+          },
+          "outcomes": {
+            "true": "9",
+            "false": "22"
+          },
+          "inputs": [
+            {
+              "id": "21_condition",
+              "name": "condition",
+              "type": "string",
+              "value": "{{!!$context.$nodes.MATCH_LEDGER_ID.$output.matched}}"
+            }
+          ],
+          "diagram": {
+            "x": 5225,
+            "y": 6094
+          },
+          "convergenceTargetId": "end"
+        },
+        {
+          "id": "9",
+          "code": "QUERY_UNACCOUNTED_INVOICES",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Query Unaccounted Invoices",
+            "description": "Fetches Payables invoices in Unaccounted/Needs Validation status via the existing exception-report BO. Note: this BOs underlying query is fixed and tenant-wide, not filtered by ledger or period - a known limitation inherited from the BO, not something this workflow can filter further.",
+            "businessObjectCode": "ORA_FIN_PAYABLES_PAYABLESPERIODCLOSEEXCEPTIONREPORT",
+            "functionName": "getall_invoices"
+          },
+          "outcomes": {
+            "success": "20"
+          },
+          "inputs": [],
+          "diagram": {
+            "x": 5000,
+            "y": 6316
+          },
+          "outputSpecification": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"totalResults\": {\n      \"type\": \"integer\"\n    },\n    \"count\": {\n      \"type\": \"integer\"\n    },\n    \"hasMore\": {\n      \"type\": \"boolean\"\n    },\n    \"limit\": {\n      \"type\": \"integer\"\n    },\n    \"offset\": {\n      \"type\": \"integer\"\n    },\n    \"links\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"href\": {\n            \"type\": \"string\"\n          },\n          \"rel\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"self\",\n              \"lov\",\n              \"parent\",\n              \"canonical\",\n              \"child\",\n              \"enclosure\",\n              \"action\",\n              \"custom\"\n            ]\n          },\n          \"name\": {\n            \"type\": \"string\"\n          },\n          \"kind\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"collection\",\n              \"item\",\n              \"describe\",\n              \"other\"\n            ]\n          }\n        },\n        \"additionalProperties\": false\n      }\n    },\n    \"items\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"@context\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"key\": {\n                \"type\": \"string\"\n              },\n              \"headers\": {\n                \"type\": \"object\",\n                \"properties\": {\n                  \"ETag\": {\n                    \"type\": \"string\"\n                  }\n                },\n                \"additionalProperties\": false\n              },\n              \"links\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"href\": {\n                      \"type\": \"string\"\n                    },\n                    \"rel\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"self\",\n                        \"lov\",\n                        \"parent\",\n                        \"canonical\",\n                        \"child\",\n                        \"enclosure\",\n                        \"action\",\n                        \"custom\"\n                      ]\n                    },\n                    \"name\": {\n                      \"type\": \"string\"\n                    },\n                    \"kind\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"collection\",\n                        \"item\",\n                        \"describe\",\n                        \"other\"\n                      ]\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              }\n            },\n            \"additionalProperties\": false\n          },\n          \"InvoiceId\": {\n            \"type\": \"string\",\n            \"format\": \"BigInt\"\n          },\n          \"SupplierNumber\": {\n            \"type\": \"string\"\n          },\n          \"InvoiceSourceCode\": {\n            \"type\": \"string\"\n          },\n          \"ApprovalStatus\": {\n            \"type\": \"string\"\n          },\n          \"PaidStatus\": {\n            \"type\": \"string\"\n          },\n          \"AccountingStatus\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"CanceledFlag\": {\n            \"anyOf\": [\n              {\n                \"type\": \"boolean\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"AmountPaid\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"BigDecimal\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"BaseAmount\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"BigDecimal\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"Party\": {\n            \"type\": \"string\"\n          },\n          \"PartySite\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"RoutingAttribute1\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"RoutingAttribute5\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"AccountCodingStatus\": {\n            \"type\": \"string\"\n          },\n          \"FundsStatus\": {\n            \"type\": \"string\"\n          },\n          \"CanceledDate\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"date\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"CanceledBy\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"CreationDate\": {\n            \"type\": \"string\",\n            \"format\": \"date-time\"\n          },\n          \"CreatedBy\": {\n            \"type\": \"string\"\n          },\n          \"LastUpdatedBy\": {\n            \"type\": \"string\"\n          },\n          \"LastUpdateDate\": {\n            \"type\": \"string\",\n            \"format\": \"date-time\"\n          },\n          \"LastUpdateLogin\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ReferenceKeyOne\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ReferenceKeyTwo\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ReferenceKeyThree\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ReferenceKeyFour\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ReferenceKeyFive\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ProductTable\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ImageDocumentNumber\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"Stream\": {\n            \"type\": \"string\"\n          },\n          \"DocumentName\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"DueDate\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"date\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ExceptionCode\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"Exception\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"InvoiceStatusCode\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"InvoiceStatus\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"StreamDefinitionCode\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"InvoiceSource\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"LiabilityDistribution\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"VoucherNumber\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ValidationStatus\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"BankAccount\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"SupplierIBAN\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ExternalBankAccountId\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"BigInt\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"DigitalPaymentAccount\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"InvoiceNumber\": {\n            \"type\": \"string\"\n          },\n          \"InvoiceCurrency\": {\n            \"type\": \"string\"\n          },\n          \"PaymentCurrency\": {\n            \"type\": \"string\"\n          },\n          \"InvoiceAmount\": {\n            \"type\": \"string\",\n            \"format\": \"BigDecimal\"\n          },\n          \"InvoiceDate\": {\n            \"type\": \"string\",\n            \"format\": \"date\"\n          },\n          \"BusinessUnit\": {\n            \"type\": \"string\"\n          },\n          \"Supplier\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ProcurementBU\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"SupplierSite\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"RequesterId\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"BigInt\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"Requester\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"InvoiceGroup\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ConversionRateType\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ConversionDate\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"date\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ConversionRate\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"BigDecimal\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"AccountingDate\": {\n            \"type\": \"string\",\n            \"format\": \"date\"\n          },\n          \"Description\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"DeliveryChannelCode\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"DeliveryChannel\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"PayAloneFlag\": {\n            \"anyOf\": [\n              {\n                \"type\": \"boolean\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"InvoiceType\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"PayGroup\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"InvoiceReceivedDate\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"date\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"PaymentReasonCode\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"PaymentReason\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"PaymentReasonComments\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"RemittanceMessageOne\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"RemittanceMessageTwo\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"RemittanceMessageThree\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"PaymentTerms\": {\n            \"type\": \"string\"\n          },\n          \"TermsDate\": {\n            \"type\": \"string\",\n            \"format\": \"date\"\n          },\n          \"GoodsReceivedDate\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"date\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"PaymentMethodCode\": {\n            \"type\": \"string\"\n          },\n          \"PaymentMethod\": {\n            \"type\": \"string\"\n          },\n          \"SupplierTaxRegistrationNumber\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"FirstPartyTaxRegistrationId\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"BigInt\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"FirstPartyTaxRegistrationNumber\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"LegalEntity\": {\n            \"type\": \"string\"\n          },\n          \"LegalEntityIdentifier\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"DocumentCategory\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"DocumentSequence\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"BigInt\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ApplyAfterDate\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"date\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"PurchaseOrderNumber\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"ControlAmount\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"BigDecimal\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"DocumentFiscalClassificationCodePath\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"TaxationCountry\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"RoutingAttribute2\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"RoutingAttribute3\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"RoutingAttribute4\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"BudgetDate\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"date\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"UniqueRemittanceIdentifier\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"UniqueRemittanceIdentifierCheckDigit\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"BankChargeBearer\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"SettlementPriority\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"StreamDetailId\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\",\n                \"format\": \"BigInt\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ]\n          },\n          \"appliedPrepayments\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"totalResults\": {\n                \"type\": \"integer\"\n              },\n              \"count\": {\n                \"type\": \"integer\"\n              },\n              \"hasMore\": {\n                \"type\": \"boolean\"\n              },\n              \"limit\": {\n                \"type\": \"integer\"\n              },\n              \"offset\": {\n                \"type\": \"integer\"\n              },\n              \"links\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"href\": {\n                      \"type\": \"string\"\n                    },\n                    \"rel\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"self\",\n                        \"lov\",\n                        \"parent\",\n                        \"canonical\",\n                        \"child\",\n                        \"enclosure\",\n                        \"action\",\n                        \"custom\"\n                      ]\n                    },\n                    \"name\": {\n                      \"type\": \"string\"\n                    },\n                    \"kind\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"collection\",\n                        \"item\",\n                        \"describe\",\n                        \"other\"\n                      ]\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              },\n              \"items\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"@context\": {\n                      \"type\": \"object\",\n                      \"additionalProperties\": false\n                    },\n                    \"InvoiceNumber\": {\n                      \"type\": \"string\"\n                    },\n                    \"LineNumber\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"integer\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"Description\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"SupplierSite\": {\n                      \"type\": \"string\"\n                    },\n                    \"PurchaseOrder\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"Currency\": {\n                      \"type\": \"string\"\n                    },\n                    \"AppliedAmount\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"IncludedTax\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"IncludedonInvoiceFlag\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"boolean\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ApplicationAccountingDate\": {\n                      \"type\": \"string\",\n                      \"format\": \"date\"\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              }\n            },\n            \"additionalProperties\": false,\n            \"required\": [\n              \"count\",\n              \"hasMore\",\n              \"limit\",\n              \"offset\",\n              \"links\"\n            ]\n          },\n          \"attachments\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"totalResults\": {\n                \"type\": \"integer\"\n              },\n              \"count\": {\n                \"type\": \"integer\"\n              },\n              \"hasMore\": {\n                \"type\": \"boolean\"\n              },\n              \"limit\": {\n                \"type\": \"integer\"\n              },\n              \"offset\": {\n                \"type\": \"integer\"\n              },\n              \"links\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"href\": {\n                      \"type\": \"string\"\n                    },\n                    \"rel\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"self\",\n                        \"lov\",\n                        \"parent\",\n                        \"canonical\",\n                        \"child\",\n                        \"enclosure\",\n                        \"action\",\n                        \"custom\"\n                      ]\n                    },\n                    \"name\": {\n                      \"type\": \"string\"\n                    },\n                    \"kind\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"collection\",\n                        \"item\",\n                        \"describe\",\n                        \"other\"\n                      ]\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              },\n              \"items\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"@context\": {\n                      \"type\": \"object\",\n                      \"additionalProperties\": false\n                    },\n                    \"LastUpdateDate\": {\n                      \"type\": \"string\",\n                      \"format\": \"date-time\"\n                    },\n                    \"LastUpdatedBy\": {\n                      \"type\": \"string\"\n                    },\n                    \"CreatedBy\": {\n                      \"type\": \"string\"\n                    },\n                    \"CreationDate\": {\n                      \"type\": \"string\",\n                      \"format\": \"date-time\"\n                    },\n                    \"LastUpdatedByUserName\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"CreatedByUserName\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"FileWebImage\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"byte\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"AttachedDocumentId\": {\n                      \"type\": \"string\",\n                      \"format\": \"BigInt\"\n                    },\n                    \"AsyncTrackerId\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"Type\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"FileName\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"DmFolderPath\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"DmDocumentId\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"DmVersionNumber\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"Url\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"Uri\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"FileUrl\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"UploadedText\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"UploadedFileContentType\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"UploadedFileLength\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigInt\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"UploadedFileName\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ContentRepositoryFileShared\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"boolean\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"Title\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"Description\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ErrorStatusCode\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ErrorStatusMessage\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"FileContents\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"byte\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ExpirationDate\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"date-time\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"DownloadInfo\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"PostProcessingAction\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"Category\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              }\n            },\n            \"additionalProperties\": false,\n            \"required\": [\n              \"count\",\n              \"hasMore\",\n              \"limit\",\n              \"offset\",\n              \"links\"\n            ]\n          },\n          \"availablePrepayments\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"totalResults\": {\n                \"type\": \"integer\"\n              },\n              \"count\": {\n                \"type\": \"integer\"\n              },\n              \"hasMore\": {\n                \"type\": \"boolean\"\n              },\n              \"limit\": {\n                \"type\": \"integer\"\n              },\n              \"offset\": {\n                \"type\": \"integer\"\n              },\n              \"links\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"href\": {\n                      \"type\": \"string\"\n                    },\n                    \"rel\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"self\",\n                        \"lov\",\n                        \"parent\",\n                        \"canonical\",\n                        \"child\",\n                        \"enclosure\",\n                        \"action\",\n                        \"custom\"\n                      ]\n                    },\n                    \"name\": {\n                      \"type\": \"string\"\n                    },\n                    \"kind\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"collection\",\n                        \"item\",\n                        \"describe\",\n                        \"other\"\n                      ]\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              },\n              \"items\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"@context\": {\n                      \"type\": \"object\",\n                      \"additionalProperties\": false\n                    },\n                    \"InvoiceNumber\": {\n                      \"type\": \"string\"\n                    },\n                    \"LineNumber\": {\n                      \"type\": \"string\",\n                      \"format\": \"BigInt\"\n                    },\n                    \"Description\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"SupplierSite\": {\n                      \"type\": \"string\"\n                    },\n                    \"PurchaseOrder\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"Currency\": {\n                      \"type\": \"string\"\n                    },\n                    \"AvailableAmount\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"IncludedTax\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              }\n            },\n            \"additionalProperties\": false,\n            \"required\": [\n              \"count\",\n              \"hasMore\",\n              \"limit\",\n              \"offset\",\n              \"links\"\n            ]\n          },\n          \"invoiceDff\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"totalResults\": {\n                \"type\": \"integer\"\n              },\n              \"count\": {\n                \"type\": \"integer\"\n              },\n              \"hasMore\": {\n                \"type\": \"boolean\"\n              },\n              \"limit\": {\n                \"type\": \"integer\"\n              },\n              \"offset\": {\n                \"type\": \"integer\"\n              },\n              \"links\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"href\": {\n                      \"type\": \"string\"\n                    },\n                    \"rel\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"self\",\n                        \"lov\",\n                        \"parent\",\n                        \"canonical\",\n                        \"child\",\n                        \"enclosure\",\n                        \"action\",\n                        \"custom\"\n                      ]\n                    },\n                    \"name\": {\n                      \"type\": \"string\"\n                    },\n                    \"kind\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"collection\",\n                        \"item\",\n                        \"describe\",\n                        \"other\"\n                      ]\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              },\n              \"items\": {\n                \"type\": \"array\",\n                \"items\": {}\n              }\n            },\n            \"additionalProperties\": false,\n            \"required\": [\n              \"count\",\n              \"hasMore\",\n              \"limit\",\n              \"offset\",\n              \"links\"\n            ]\n          },\n          \"invoiceGdf\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"totalResults\": {\n                \"type\": \"integer\"\n              },\n              \"count\": {\n                \"type\": \"integer\"\n              },\n              \"hasMore\": {\n                \"type\": \"boolean\"\n              },\n              \"limit\": {\n                \"type\": \"integer\"\n              },\n              \"offset\": {\n                \"type\": \"integer\"\n              },\n              \"links\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"href\": {\n                      \"type\": \"string\"\n                    },\n                    \"rel\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"self\",\n                        \"lov\",\n                        \"parent\",\n                        \"canonical\",\n                        \"child\",\n                        \"enclosure\",\n                        \"action\",\n                        \"custom\"\n                      ]\n                    },\n                    \"name\": {\n                      \"type\": \"string\"\n                    },\n                    \"kind\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"collection\",\n                        \"item\",\n                        \"describe\",\n                        \"other\"\n                      ]\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              },\n              \"items\": {\n                \"type\": \"array\",\n                \"items\": {}\n              }\n            },\n            \"additionalProperties\": false,\n            \"required\": [\n              \"count\",\n              \"hasMore\",\n              \"limit\",\n              \"offset\",\n              \"links\"\n            ]\n          },\n          \"invoiceInstallments\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"totalResults\": {\n                \"type\": \"integer\"\n              },\n              \"count\": {\n                \"type\": \"integer\"\n              },\n              \"hasMore\": {\n                \"type\": \"boolean\"\n              },\n              \"limit\": {\n                \"type\": \"integer\"\n              },\n              \"offset\": {\n                \"type\": \"integer\"\n              },\n              \"links\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"href\": {\n                      \"type\": \"string\"\n                    },\n                    \"rel\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"self\",\n                        \"lov\",\n                        \"parent\",\n                        \"canonical\",\n                        \"child\",\n                        \"enclosure\",\n                        \"action\",\n                        \"custom\"\n                      ]\n                    },\n                    \"name\": {\n                      \"type\": \"string\"\n                    },\n                    \"kind\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"collection\",\n                        \"item\",\n                        \"describe\",\n                        \"other\"\n                      ]\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              },\n              \"items\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"@context\": {\n                      \"type\": \"object\",\n                      \"additionalProperties\": false\n                    },\n                    \"UnpaidAmount\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"NetAmountOne\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"NetAmountTwo\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"NetAmountThree\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"HeldBy\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"HoldType\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"HoldDate\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"date-time\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"CreatedBy\": {\n                      \"type\": \"string\"\n                    },\n                    \"CreationDate\": {\n                      \"type\": \"string\",\n                      \"format\": \"date-time\"\n                    },\n                    \"LastUpdateDate\": {\n                      \"type\": \"string\",\n                      \"format\": \"date-time\"\n                    },\n                    \"LastUpdatedBy\": {\n                      \"type\": \"string\"\n                    },\n                    \"LastUpdateLogin\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"InstallmentNumber\": {\n                      \"type\": \"string\",\n                      \"format\": \"BigInt\"\n                    },\n                    \"FirstDiscountAmount\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"FirstDiscountDate\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"date\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"DueDate\": {\n                      \"type\": \"string\",\n                      \"format\": \"date\"\n                    },\n                    \"GrossAmount\": {\n                      \"type\": \"string\",\n                      \"format\": \"BigDecimal\"\n                    },\n                    \"HoldReason\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"PaymentPriority\": {\n                      \"type\": \"integer\",\n                      \"format\": \"int32\"\n                    },\n                    \"SecondDiscountAmount\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"SecondDiscountDate\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"date\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ThirdDiscountAmount\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ThirdDiscountDate\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"date\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"HoldFlag\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"boolean\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"PaymentMethod\": {\n                      \"type\": \"string\"\n                    },\n                    \"PaymentMethodCode\": {\n                      \"type\": \"string\"\n                    },\n                    \"BankAccount\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ExternalBankAccountId\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigInt\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"RemitToAddressName\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"RemitToSupplier\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"RemittanceMessageOne\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"RemittanceMessageTwo\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"RemittanceMessageThree\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"DigitalPaymentAccount\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"invoiceInstallmentDff\": {\n                      \"type\": \"object\",\n                      \"additionalProperties\": false\n                    },\n                    \"invoiceInstallmentGdf\": {\n                      \"type\": \"object\",\n                      \"additionalProperties\": false\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              }\n            },\n            \"additionalProperties\": false,\n            \"required\": [\n              \"count\",\n              \"hasMore\",\n              \"limit\",\n              \"offset\",\n              \"links\"\n            ]\n          },\n          \"invoiceLines\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"totalResults\": {\n                \"type\": \"integer\"\n              },\n              \"count\": {\n                \"type\": \"integer\"\n              },\n              \"hasMore\": {\n                \"type\": \"boolean\"\n              },\n              \"limit\": {\n                \"type\": \"integer\"\n              },\n              \"offset\": {\n                \"type\": \"integer\"\n              },\n              \"links\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"href\": {\n                      \"type\": \"string\"\n                    },\n                    \"rel\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"self\",\n                        \"lov\",\n                        \"parent\",\n                        \"canonical\",\n                        \"child\",\n                        \"enclosure\",\n                        \"action\",\n                        \"custom\"\n                      ]\n                    },\n                    \"name\": {\n                      \"type\": \"string\"\n                    },\n                    \"kind\": {\n                      \"type\": \"string\",\n                      \"enum\": [\n                        \"collection\",\n                        \"item\",\n                        \"describe\",\n                        \"other\"\n                      ]\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              },\n              \"items\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"@context\": {\n                      \"type\": \"object\",\n                      \"additionalProperties\": false\n                    },\n                    \"TaxRateName\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"BaseAmount\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ItemDescription\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"LineSource\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"DiscardedFlag\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"boolean\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"CanceledFlag\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"boolean\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"TaxRateCode\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"TaxRate\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"GenerateDistributions\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"FundsStatus\": {\n                      \"type\": \"string\"\n                    },\n                    \"ApprovalStatus\": {\n                      \"type\": \"string\"\n                    },\n                    \"ShipToCustomerLocation\": {\n                      \"type\": \"string\"\n                    },\n                    \"PurchasingCategory\": {\n                      \"type\": \"string\"\n                    },\n                    \"MatchType\": {\n                      \"type\": \"string\"\n                    },\n                    \"MatchOption\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"MatchBasis\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"CreatedBy\": {\n                      \"type\": \"string\"\n                    },\n                    \"CreationDate\": {\n                      \"type\": \"string\",\n                      \"format\": \"date-time\"\n                    },\n                    \"LastUpdateDate\": {\n                      \"type\": \"string\",\n                      \"format\": \"date-time\"\n                    },\n                    \"LastUpdatedBy\": {\n                      \"type\": \"string\"\n                    },\n                    \"LastUpdateLogin\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"PrepaymentNumber\": {\n                      \"type\": \"string\"\n                    },\n                    \"PrepaymentLineNumber\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"integer\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"PrepaymentIncludedonInvoiceFlag\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"boolean\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ReferenceKeyTwo\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ProductTable\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"LineNumber\": {\n                      \"type\": \"integer\",\n                      \"format\": \"int64\"\n                    },\n                    \"Quantity\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"UnitPrice\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"PurchaseOrderNumber\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"PurchaseOrderLineNumber\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"PurchaseOrderScheduleLineNumber\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ReceiptNumber\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ReceiptLineNumber\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigInt\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"RcvTransactionId\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigInt\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ConsumptionAdviceNumber\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ConsumptionAdviceLineNumber\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"FinalMatchFlag\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"boolean\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"LineAmount\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"AccountingDate\": {\n                      \"type\": \"string\",\n                      \"format\": \"date\"\n                    },\n                    \"UOM\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"LineType\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"AssetBook\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"TrackAsAssetFlag\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"boolean\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"Description\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"IncomeTaxRegion\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"Item\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"DistributionCombination\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"AssetCategory\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ProrateAcrossAllItemsFlag\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"boolean\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"LandedCostEnabled\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"IncomeTaxType\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"TaxClassification\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"BudgetDate\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"date\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"DistributionSet\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"Withholding\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ShipToLocationCode\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ShipToLocation\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"TaxControlAmount\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"AssessableValue\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigDecimal\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ProductType\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ProductCategory\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ProductCategoryCodePath\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"UserDefinedFiscalClassification\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"UserDefinedFiscalClassificationCode\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"IntendedUse\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"IntendedUseCode\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ProductFiscalClassification\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ProductFiscalClassificationCode\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"ProductFiscalClassificationType\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"TransactionBusinessCategory\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"TransactionBusinessCategoryCodePath\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"Requester\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"MultiperiodAccountingStartDate\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"date\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"MultiperiodAccountingEndDate\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"date\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"MultiperiodAccountingAccrualAccount\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"RequesterId\": {\n                      \"anyOf\": [\n                        {\n                          \"type\": \"string\",\n                          \"format\": \"BigInt\"\n                        },\n                        {\n                          \"type\": \"null\"\n                        }\n                      ]\n                    },\n                    \"invoiceDistributions\": {\n                      \"type\": \"object\",\n                      \"additionalProperties\": false\n                    },\n                    \"invoiceLineDff\": {\n                      \"type\": \"object\",\n                      \"additionalProperties\": false\n                    },\n                    \"invoiceLineGdf\": {\n                      \"type\": \"object\",\n                      \"additionalProperties\": false\n                    },\n                    \"invoiceLineProjectDff\": {\n                      \"type\": \"object\",\n                      \"additionalProperties\": false\n                    }\n                  },\n                  \"additionalProperties\": false\n                }\n              }\n            },\n            \"additionalProperties\": false,\n            \"required\": [\n              \"count\",\n              \"hasMore\",\n              \"limit\",\n              \"offset\",\n              \"links\"\n            ]\n          }\n        },\n        \"additionalProperties\": false\n      }\n    }\n  },\n  \"additionalProperties\": false,\n  \"required\": [\n    \"count\",\n    \"hasMore\",\n    \"limit\",\n    \"offset\",\n    \"links\"\n  ]\n}"
+        },
+        {
+          "id": "20",
+          "code": "BUILD_HOLDS_QUERY",
+          "type": "CODE",
+          "metadata": {
+            "name": "Build Holds Query",
+            "description": "Pre-builds the invoiceHolds q filter string from the extracted date range.",
+            "sourceCode": "const q = \"HoldName LIKE '%'\";\nconst result = { q };\nreturn result;",
+            "returnType": "object"
+          },
+          "outcomes": {
+            "success": "10"
+          },
+          "inputs": [],
+          "diagram": {
+            "x": 5000,
+            "y": 6538
+          },
+          "outputSpecification": "{\n  \"$schema\": \"http://json-schema.org/draft-04/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"result\": {\n      \"type\": \"object\"\n    },\n    \"timeout\": {\n      \"type\": \"boolean\"\n    },\n    \"error\": {\n      \"type\": \"string\"\n    }\n  },\n  \"additionalProperties\": false,\n  \"required\": [\n    \"result\",\n    \"timeout\",\n    \"error\"\n  ]\n}"
+        },
+        {
+          "id": "10",
+          "code": "QUERY_OPEN_HOLDS",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Query Open Holds",
+            "description": "Searches AP invoice holds by hold date range via the existing holds BO; open/released is determined downstream from ReleaseDate.",
+            "businessObjectCode": "LN_AP_INVOICE_HOLDS_BO",
+            "functionName": "search_invoiceHolds"
+          },
+          "outcomes": {
+            "success": "4"
+          },
+          "inputs": [
+            {
+              "id": "10_q",
+              "name": "q",
+              "type": "string",
+              "value": "{{$context.$nodes.BUILD_HOLDS_QUERY.$output.result.q}}"
+            }
+          ],
+          "diagram": {
+            "x": 5000,
+            "y": 6760
+          },
+          "outputSpecification": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"items\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"HoldId\": {\n            \"type\": \"number\"\n          },\n          \"InvoiceNumber\": {\n            \"type\": \"string\"\n          },\n          \"BusinessUnit\": {\n            \"type\": \"string\"\n          },\n          \"Supplier\": {\n            \"type\": \"string\"\n          },\n          \"LineHeld\": {\n            \"type\": \"null\"\n          },\n          \"HoldDate\": {\n            \"type\": \"string\"\n          },\n          \"HoldDetails\": {\n            \"type\": \"null\"\n          },\n          \"HoldReason\": {\n            \"type\": \"string\"\n          },\n          \"ReleaseReason\": {\n            \"type\": \"null\"\n          },\n          \"WorkflowStatus\": {\n            \"type\": \"null\"\n          },\n          \"ReleaseName\": {\n            \"type\": \"null\"\n          },\n          \"HoldName\": {\n            \"type\": \"string\"\n          },\n          \"ReleaseDate\": {\n            \"type\": \"null\"\n          },\n          \"HeldBy\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"HoldId\",\n          \"InvoiceNumber\",\n          \"BusinessUnit\",\n          \"Supplier\",\n          \"LineHeld\",\n          \"HoldDate\",\n          \"HoldDetails\",\n          \"HoldReason\",\n          \"ReleaseReason\",\n          \"WorkflowStatus\",\n          \"ReleaseName\",\n          \"HoldName\",\n          \"ReleaseDate\",\n          \"HeldBy\"\n        ],\n        \"additionalProperties\": false\n      }\n    },\n    \"totalResults\": {\n      \"type\": \"number\"\n    },\n    \"count\": {\n      \"type\": \"number\"\n    },\n    \"hasMore\": {\n      \"type\": \"boolean\"\n    },\n    \"limit\": {\n      \"type\": \"number\"\n    },\n    \"offset\": {\n      \"type\": \"number\"\n    }\n  },\n  \"required\": [\n    \"items\",\n    \"totalResults\",\n    \"count\",\n    \"hasMore\",\n    \"limit\",\n    \"offset\"\n  ],\n  \"additionalProperties\": false\n}"
+        },
+        {
+          "id": "4",
+          "code": "SUMMARIZE_EXCEPTIONS_AND_ASK",
+          "type": "LLM",
+          "metadata": {
+            "name": "Summarize Exceptions And Ask",
+            "description": "Summarizes stuck invoices/holds and asks the user how to proceed."
+          },
+          "outcomes": {
+            "success": "7"
+          },
+          "inputs": [
+            {
+              "id": "4_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "Using this unaccounted/needs-validation invoices data: {{$context.$nodes.QUERY_UNACCOUNTED_INVOICES.$output}} and this invoice-holds data: {{$context.$nodes.QUERY_OPEN_HOLDS.$output}}, summarize any stuck AP invoices or open holds (count, total amount if available, and why each is stuck). The holds data may include holds unrelated to this specific period, but a reliable per-period date signal isn't available for this query - so treat every row with a null or missing ReleaseDate as a currently active, stuck hold, regardless of its date, and do not second-guess that with a separate period-relevance judgment. If, after that single check, no unaccounted invoices and no active holds remain, say the period looks clear. Then explicitly ask the user whether the stuck items should be swept to the next period or handled another way, or, if nothing is stuck, ask the user to confirm proceeding with opening the next period, running Create Accounting, and closing the current period. Keep the message concise, internally consistent, and end with one clear question."
+            }
+          ],
+          "diagram": {
+            "x": 5000,
+            "y": 6982
+          }
+        },
+        {
+          "id": "7",
+          "code": "ASK_ABOUT_SWEEP",
+          "type": "HUMAN",
+          "metadata": {
+            "name": "Ask About Sweep",
+            "description": "Displays the exceptions summary/question and waits for the user's reply; loops back to the classifier.",
+            "channelType": "CHAT",
+            "approvalEnabledFlag": false,
+            "feedbackEnabledFlag": true,
+            "loopBackNodeId": "5"
+          },
+          "outcomes": {
+            "success": "end"
+          },
+          "inputs": [
+            {
+              "id": "7_chatChannelInput",
+              "name": "chatChannelInput",
+              "type": "object",
+              "value": {
+                "messageTemplate": {
+                  "message": "{{$context.$nodes.SUMMARIZE_EXCEPTIONS_AND_ASK.$output}}"
+                }
+              }
+            }
+          ],
+          "diagram": {
+            "x": 5000,
+            "y": 7204
+          }
+        },
+        {
+          "id": "22",
+          "code": "ASK_LEDGER_DISAMBIGUATION",
+          "type": "HUMAN",
+          "metadata": {
+            "name": "Ask Ledger Disambiguation",
+            "description": "Shows candidate ledger names and asks the user to pick the exact one; loops back to re-match.",
+            "channelType": "CHAT",
+            "approvalEnabledFlag": false,
+            "feedbackEnabledFlag": true,
+            "loopBackNodeId": "16"
+          },
+          "outcomes": {
+            "success": "end"
+          },
+          "inputs": [
+            {
+              "id": "22_chatChannelInput",
+              "name": "chatChannelInput",
+              "type": "object",
+              "value": {
+                "messageTemplate": {
+                  "message": "{{$context.$nodes.MATCH_LEDGER_ID.$output.disambiguationMessage}}"
+                }
+              }
+            }
+          ],
+          "diagram": {
+            "x": 5450,
+            "y": 6316
+          }
+        },
+        {
+          "id": "5",
+          "code": "CLASSIFY_SWEEP_DECISION",
+          "type": "LLM",
+          "metadata": {
+            "name": "Classify Sweep Decision",
+            "description": "Classifies the user's reply as PROCEED or STOP."
+          },
+          "outcomes": {
+            "success": "8"
+          },
+          "inputs": [
+            {
+              "id": "5_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "Classify the user's reply to a question about AP period close exceptions. Original exceptions summary and question: {{$context.$nodes.SUMMARIZE_EXCEPTIONS_AND_ASK.$output}}. User's reply: {{$context.$nodes.ASK_ABOUT_SWEEP.$feedbackReceived}}. Set decision to exactly one of: PROCEED_WITH_SWEEP if the summary described stuck/unaccounted invoices or open holds and the user wants them swept to the next period and the close continued; PROCEED_NO_EXCEPTIONS if the summary said the period looked clear (no stuck items) and the user confirms proceeding with opening the next period, Create Accounting, and closing the current period; STOP if the user wants to stop, wait, or handle it another way instead of continuing right now."
+            }
+          ],
+          "diagram": {
+            "x": 6300,
+            "y": 5000
+          },
+          "outputSpecification": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"decision\": {\"type\": \"string\", \"enum\": [\"PROCEED_WITH_SWEEP\", \"PROCEED_NO_EXCEPTIONS\", \"STOP\"]}\n  }\n}\n"
+        },
+        {
+          "id": "8",
+          "code": "ROUTE_SWEEP_DECISION",
+          "type": "SWITCH",
+          "metadata": {
+            "name": "Route Sweep Decision",
+            "description": "Routes to PROCEED or STOP based on the classified reply.",
+            "convergenceTargetId": "6"
+          },
+          "outcomes": {
+            "STOP": "6",
+            "PROCEED_NO_EXCEPTIONS": "11",
+            "PROCEED_WITH_SWEEP": "23",
+            "success": ""
+          },
+          "inputs": [
+            {
+              "id": "8_caseExpression",
+              "name": "caseExpression",
+              "type": "string",
+              "value": "{{$context.$nodes.CLASSIFY_SWEEP_DECISION.$output.decision}}"
+            }
+          ],
+          "diagram": {
+            "x": 6300,
+            "y": 5222
+          },
+          "convergenceTargetId": "6"
+        },
+        {
+          "id": "6",
+          "code": "FINAL_RESPONSE",
+          "type": "LLM",
+          "metadata": {
+            "name": "Final Response",
+            "description": "Convergence terminal: reports outcome whether stopped or proceeded."
+          },
+          "outcomes": {
+            "success": "end"
+          },
+          "inputs": [
+            {
+              "id": "6_prompt",
+              "name": "prompt",
+              "type": "string",
+              "value": "Generate a final status message for the user about this AP period close request. Check {{$context.$nodes.CLASSIFY_SWEEP_DECISION.$output.decision}}. If it is STOP, acknowledge that no further action was taken and invite the user to say how they'd like to proceed with the stuck invoices or holds, then return only that message. Otherwise, examine the raw results below without assuming any of them succeeded. A genuinely successful ESS job submission contains a real request identifier (for example a ReqstId field), and once a status check ran, a status field showing something like SUCCEEDED, SUCCESS, COMPLETED, or WARNING. A still-running job's status check instead shows something like PROCESSING, RUNNING, or PENDING - report that step as submitted and still in progress, not as complete. A failed submission or status check instead contains fields such as title, an HTTP-style status code, or o:errorDetails, or otherwise lacks a request identifier. If decision is PROCEED_WITH_SWEEP, first cover the sweep step using: submission result {{$context.$nodes.SUBMIT_SWEEP.$output}}, status check result {{$context.$nodes.POLL_SWEEP.$output}}. Then always cover, in this order: period open using submission result {{$context.$nodes.SUBMIT_PERIOD_OPEN.$output}} and status check result {{$context.$nodes.POLL_PERIOD_OPEN.$output}}; Create Accounting using submission result {{$context.$nodes.SUBMIT_CREATE_ACCOUNTING.$output}} and status check result {{$context.$nodes.POLL_CREATE_ACCOUNTING.$output}}; period close using submission result {{$context.$nodes.SUBMIT_PERIOD_CLOSE.$output}} and status check result {{$context.$nodes.POLL_PERIOD_CLOSE.$output}}. For each step, state specifically whether it succeeded, is still running, or failed, based only on what its actual results contain. Never state that a step succeeded unless its result actually shows that. If any step failed, say plainly which one and include the actual error detail text from its result so the user can act on it - do not soften, hide, summarize away, or omit a failure. Tell the user that whatever was submitted was submitted directly with no separate approval step, regardless of the outcome. Keep the message concise but complete. Return only the final message text."
+            }
+          ],
+          "diagram": {
+            "x": 6300,
+            "y": 7220
+          }
+        },
+        {
+          "id": "11",
+          "code": "SUBMIT_PERIOD_OPEN",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Submit Period Open",
+            "description": "Submits the real Open Payables Accounting Period job via the dedicated period-close-jobs BO.",
+            "businessObjectCode": "ORA_FIN_OTHER_PERIODCLOSEJOBS",
+            "functionName": "OpenPayablesPeriod"
+          },
+          "outcomes": {
+            "success": "24"
+          },
+          "inputs": [
+            {
+              "id": "11_P_JOB_ID",
+              "name": "P_JOB_ID",
+              "type": "string",
+              "value": null
+            },
+            {
+              "id": "11_pLedgerId",
+              "name": "pLedgerId",
+              "type": "string",
+              "value": "{{$context.$nodes.MATCH_LEDGER_ID.$output.ledgerId}}"
+            },
+            {
+              "id": "11_pPeriodName",
+              "name": "pPeriodName",
+              "type": "string",
+              "value": "{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.nextPeriodName}}"
+            }
+          ],
+          "diagram": {
+            "x": 6300,
+            "y": 5888
+          },
+          "outputSpecification": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"@context\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"key\": {\n          \"type\": \"string\"\n        },\n        \"headers\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"ETag\": {\n              \"type\": \"string\"\n            }\n          },\n          \"additionalProperties\": false\n        },\n        \"links\": {\n          \"type\": \"array\",\n          \"items\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"href\": {\n                \"type\": \"string\"\n              },\n              \"rel\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"self\",\n                  \"lov\",\n                  \"parent\",\n                  \"canonical\",\n                  \"child\",\n                  \"enclosure\",\n                  \"action\",\n                  \"custom\"\n                ]\n              },\n              \"name\": {\n                \"type\": \"string\"\n              },\n              \"kind\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"collection\",\n                  \"item\",\n                  \"describe\",\n                  \"other\"\n                ]\n              }\n            },\n            \"additionalProperties\": false\n          }\n        }\n      },\n      \"additionalProperties\": false\n    },\n    \"OperationName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"DocumentId\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"DocumentContent\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"FileName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ContentType\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"FileType\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"DocumentAccount\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"Comments\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ProcessName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"LoadRequestId\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"JobPackageName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"JobDefName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ReqstId\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"RequestStatus\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"JobName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ParameterList\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"NotificationCode\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"CallbackURL\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"JobOptions\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"StatusCode\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ESSParameters\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    }\n  },\n  \"additionalProperties\": false\n}"
+        },
+        {
+          "id": "24",
+          "code": "POLL_PERIOD_OPEN",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Poll Period Open Status",
+            "description": "Checks the real status of the submitted period-open job by request id.",
+            "businessObjectCode": "ORA_FIN_OTHER_ERPINTEGRATIONS",
+            "functionName": "GetESSJobStatus"
+          },
+          "outcomes": {
+            "success": "12"
+          },
+          "inputs": [
+            {
+              "id": "24_p_request_id",
+              "name": "p_request_id",
+              "type": "string",
+              "value": "{{$context.$nodes.SUBMIT_PERIOD_OPEN.$output.ReqstId}}"
+            }
+          ],
+          "diagram": {
+            "x": 6300,
+            "y": 6110
+          }
+        },
+        {
+          "id": "12",
+          "code": "SUBMIT_CREATE_ACCOUNTING",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Submit Create Accounting",
+            "description": "Submits the Create Accounting ESS job for Payables via the existing ERP integrations BO's dedicated function.",
+            "businessObjectCode": "ORA_FIN_OTHER_ERPINTEGRATIONS",
+            "functionName": "CreateAccountingJob"
+          },
+          "outcomes": {
+            "success": "26"
+          },
+          "inputs": [
+            {
+              "id": "12_p_ledger_id",
+              "name": "p_ledger_id",
+              "type": "string",
+              "value": "{{$context.$nodes.MATCH_LEDGER_ID.$output.ledgerId}}"
+            },
+            {
+              "id": "12_p_end_date",
+              "name": "p_end_date",
+              "type": "string",
+              "value": "{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.endDate}}"
+            }
+          ],
+          "diagram": {
+            "x": 6300,
+            "y": 6332
+          }
+        },
+        {
+          "id": "26",
+          "code": "POLL_CREATE_ACCOUNTING",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Poll Create Accounting Status",
+            "description": "Checks the real status of the submitted Create Accounting job by request id.",
+            "businessObjectCode": "ORA_FIN_OTHER_ERPINTEGRATIONS",
+            "functionName": "GetESSJobStatus"
+          },
+          "outcomes": {
+            "success": "13"
+          },
+          "inputs": [
+            {
+              "id": "26_p_request_id",
+              "name": "p_request_id",
+              "type": "string",
+              "value": "{{$context.$nodes.SUBMIT_CREATE_ACCOUNTING.$output.ReqstId}}"
+            }
+          ],
+          "diagram": {
+            "x": 6300,
+            "y": 6554
+          }
+        },
+        {
+          "id": "13",
+          "code": "SUBMIT_PERIOD_CLOSE",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Submit Period Close",
+            "description": "Submits the real Close Payables Accounting Period job via the dedicated period-close-jobs BO.",
+            "businessObjectCode": "ORA_FIN_OTHER_PERIODCLOSEJOBS",
+            "functionName": "ClosePayablePeriod"
+          },
+          "outcomes": {
+            "success": "27"
+          },
+          "inputs": [
+            {
+              "id": "13_P_JOB_ID",
+              "name": "P_JOB_ID",
+              "type": "string",
+              "value": null
+            },
+            {
+              "id": "13_pLedgerId",
+              "name": "pLedgerId",
+              "type": "string",
+              "value": "{{$context.$nodes.MATCH_LEDGER_ID.$output.ledgerId}}"
+            },
+            {
+              "id": "13_pPeriodName",
+              "name": "pPeriodName",
+              "type": "string",
+              "value": "{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.periodName}}"
+            }
+          ],
+          "diagram": {
+            "x": 6300,
+            "y": 6776
+          },
+          "outputSpecification": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"@context\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"key\": {\n          \"type\": \"string\"\n        },\n        \"headers\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"ETag\": {\n              \"type\": \"string\"\n            }\n          },\n          \"additionalProperties\": false\n        },\n        \"links\": {\n          \"type\": \"array\",\n          \"items\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"href\": {\n                \"type\": \"string\"\n              },\n              \"rel\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"self\",\n                  \"lov\",\n                  \"parent\",\n                  \"canonical\",\n                  \"child\",\n                  \"enclosure\",\n                  \"action\",\n                  \"custom\"\n                ]\n              },\n              \"name\": {\n                \"type\": \"string\"\n              },\n              \"kind\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"collection\",\n                  \"item\",\n                  \"describe\",\n                  \"other\"\n                ]\n              }\n            },\n            \"additionalProperties\": false\n          }\n        }\n      },\n      \"additionalProperties\": false\n    },\n    \"OperationName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"DocumentId\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"DocumentContent\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"FileName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ContentType\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"FileType\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"DocumentAccount\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"Comments\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ProcessName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"LoadRequestId\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"JobPackageName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"JobDefName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ReqstId\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"RequestStatus\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"JobName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ParameterList\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"NotificationCode\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"CallbackURL\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"JobOptions\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"StatusCode\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ESSParameters\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    }\n  },\n  \"additionalProperties\": false\n}"
+        },
+        {
+          "id": "27",
+          "code": "POLL_PERIOD_CLOSE",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Poll Period Close Status",
+            "description": "Checks the real status of the submitted period-close job by request id.",
+            "businessObjectCode": "ORA_FIN_OTHER_ERPINTEGRATIONS",
+            "functionName": "GetESSJobStatus"
+          },
+          "outcomes": {
+            "success": "6"
+          },
+          "inputs": [
+            {
+              "id": "27_p_request_id",
+              "name": "p_request_id",
+              "type": "string",
+              "value": "{{$context.$nodes.SUBMIT_PERIOD_CLOSE.$output.ReqstId}}"
+            }
+          ],
+          "diagram": {
+            "x": 6300,
+            "y": 6998
+          }
+        },
+        {
+          "id": "23",
+          "code": "SUBMIT_SWEEP",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Submit Sweep",
+            "description": "Submits the real Payables Unaccounted Transactions and Sweep Report job to sweep stuck items to the next period.",
+            "businessObjectCode": "ORA_FIN_OTHER_PERIODCLOSEJOBS",
+            "functionName": "unaccountedTransactionsbyLedger"
+          },
+          "outcomes": {
+            "success": "25"
+          },
+          "inputs": [
+            {
+              "id": "23_pLedgerId",
+              "name": "pLedgerId",
+              "type": "string",
+              "value": "{{$context.$nodes.MATCH_LEDGER_ID.$output.ledgerId}}"
+            },
+            {
+              "id": "23_pPeriodName",
+              "name": "pPeriodName",
+              "type": "string",
+              "value": "{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.periodName}}"
+            },
+            {
+              "id": "23_pSweepPeriod",
+              "name": "pSweepPeriod",
+              "type": "string",
+              "value": "{{$context.$nodes.EXTRACT_REQUEST_DETAILS.$output.nextPeriodName}}"
+            }
+          ],
+          "diagram": {
+            "x": 6750,
+            "y": 5444
+          },
+          "outputSpecification": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"@context\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"key\": {\n          \"type\": \"string\"\n        },\n        \"headers\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"ETag\": {\n              \"type\": \"string\"\n            }\n          },\n          \"additionalProperties\": false\n        },\n        \"links\": {\n          \"type\": \"array\",\n          \"items\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"href\": {\n                \"type\": \"string\"\n              },\n              \"rel\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"self\",\n                  \"lov\",\n                  \"parent\",\n                  \"canonical\",\n                  \"child\",\n                  \"enclosure\",\n                  \"action\",\n                  \"custom\"\n                ]\n              },\n              \"name\": {\n                \"type\": \"string\"\n              },\n              \"kind\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"collection\",\n                  \"item\",\n                  \"describe\",\n                  \"other\"\n                ]\n              }\n            },\n            \"additionalProperties\": false\n          }\n        }\n      },\n      \"additionalProperties\": false\n    },\n    \"OperationName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"DocumentId\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"DocumentContent\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"FileName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ContentType\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"FileType\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"DocumentAccount\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"Comments\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ProcessName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"LoadRequestId\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"JobPackageName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"JobDefName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ReqstId\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"RequestStatus\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"JobName\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ParameterList\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"NotificationCode\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"CallbackURL\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"JobOptions\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"StatusCode\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    },\n    \"ESSParameters\": {\n      \"anyOf\": [\n        {\n          \"type\": \"string\"\n        },\n        {\n          \"type\": \"null\"\n        }\n      ]\n    }\n  },\n  \"additionalProperties\": false\n}"
+        },
+        {
+          "id": "25",
+          "code": "POLL_SWEEP",
+          "type": "BO_FUNCTION",
+          "metadata": {
+            "name": "Poll Sweep Status",
+            "description": "Checks the real status of the submitted sweep job by request id.",
+            "businessObjectCode": "ORA_FIN_OTHER_ERPINTEGRATIONS",
+            "functionName": "GetESSJobStatus"
+          },
+          "outcomes": {
+            "success": "11"
+          },
+          "inputs": [
+            {
+              "id": "25_p_request_id",
+              "name": "p_request_id",
+              "type": "string",
+              "value": "{{$context.$nodes.SUBMIT_SWEEP.$output.ReqstId}}"
+            }
+          ],
+          "diagram": {
+            "x": 6750,
+            "y": 5666
+          }
+        },
+        {
+          "id": "end",
+          "code": "END",
+          "type": "END",
+          "metadata": {
+            "name": "End",
+            "description": "End of data pipeline"
+          },
+          "outcomes": {},
+          "inputs": [],
+          "diagram": {
+            "x": 5000,
+            "y": 5220
+          }
+        }
+      ],
+      "rootNode": "start",
+      "variables": [],
+      "errorHandlers": []
+    },
+    "modelConfiguration": null,
+    "humanApprovalFlag": true,
+    "waitFlag": false,
+    "triggers": [
+      {
+        "type": "REST",
+        "inputs": []
+      }
+    ],
+    "deletedTriggerTypes": [],
+    "answerInUserLanguage": false,
+    "userLanguagePrompt": "",
+    "chatExpTPFileUploadEnabledFlag": false,
+    "chatExpThirdPartyDetails": [],
+    "diagram": {
+      "orientation": "vertical",
+      "commentNodes": []
+    },
+    "defaultModelConfiguration": "ORA_MODEL_CONFIG_PREMIUM_OPEN_AI_GPT_4_1_MINI"
+  },
+  "status": "DRAFT",
+  "version": 86157912,
+  "family": "FIN",
+  "product": "PAYABLES",
+  "ownerName": null,
+  "customFlag": false,
+  "seededFlag": false,
+  "isTemplate": false,
+  "hiddenFlag": false,
+  "useCaseId": "NA",
+  "accessModifier": "public",
+  "architecture": "data_pipeline",
+  "aiAppsCompatibleFlag": false,
+  "followupEnabledFlag": false,
+  "followupPrompt": "Based on the following conversion: $param.system_context.chat_history generate $param.system_context.number_of_follow_up_questions\nfollow up questions only while strictly adhering to the JSON Schema format mentioned below. Remove the ```json markdown from the output.\nHere is the JSON Schema format the output should adhere to:\n[{\"question\": \"<put first question generated here>\"}, {\"question\": \"<put second question generated here>\"}, {\"question\": \"<put third question generated here>\"}",
+  "header": {
+    "ETag": "\"50\""
+  }
+}

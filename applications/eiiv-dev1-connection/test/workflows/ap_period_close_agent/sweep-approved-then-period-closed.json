@@ -1,0 +1,574 @@
+{
+  "testName": "sweep-approved-then-period-closed",
+  "scenario": {
+    "custom": false,
+    "source": "sync-plan",
+    "id": "ASK_ABOUT_SWEEP-feedback-conversation",
+    "kind": "conversation",
+    "intent": "User asks to close the AP period; the ledger resolves cleanly; stuck invoices/holds are found; user replies to sweep them; the agent runs the real sweep job, then opens the next period, runs Create Accounting, and closes the current period, polling and reporting real status for every submission."
+  },
+  "workflow": {
+    "workflowCode": "AP_PERIOD_CLOSE_AGENT"
+  },
+  "authoring": {
+    "source": "model-authored",
+    "createdAt": "2026-09-23T12:18:57.424Z",
+    "userPrompt": "User closes AP period, exceptions found, user approves sweep, agent completes open/create-accounting/close."
+  },
+  "defaults": {
+    "dataSource": "file",
+    "evaluationMode": "hybrid"
+  },
+  "conversation": {
+    "mode": "scripted",
+    "goal": "Verify the agent resolves the ledger, summarizes AP exceptions, waits for the user's sweep decision, and on a proceed-with-sweep reply runs the real sweep then completes the open/create-accounting/close sequence with polled status for every step.",
+    "steps": [
+      {
+        "stepId": "submit-ap-period-close-request",
+        "intent": "User asks the agent to close the AP period for a ledger and period.",
+        "assertions": {
+          "contains": [],
+          "notContains": []
+        },
+        "pathAssertions": {
+          "mustExecute": [
+            {
+              "id": "extract-details-reached",
+              "name": "Request details are extracted",
+              "nodeCode": "EXTRACT_REQUEST_DETAILS"
+            },
+            {
+              "id": "ledger-period-checked",
+              "name": "Ledger/period presence is checked",
+              "nodeCode": "CHECK_LEDGER_PERIOD_PROVIDED"
+            },
+            {
+              "id": "ledger-resolved",
+              "name": "Ledger LOV is fetched",
+              "nodeCode": "RESOLVE_LEDGER_ID"
+            },
+            {
+              "id": "ledger-matched",
+              "name": "Ledger name is matched",
+              "nodeCode": "MATCH_LEDGER_ID"
+            },
+            {
+              "id": "ledger-match-checked",
+              "name": "Ledger match is checked",
+              "nodeCode": "CHECK_LEDGER_MATCHED"
+            },
+            {
+              "id": "unaccounted-invoices-checked",
+              "name": "Unaccounted invoices are checked",
+              "nodeCode": "QUERY_UNACCOUNTED_INVOICES"
+            },
+            {
+              "id": "holds-query-built",
+              "name": "Holds query is built",
+              "nodeCode": "BUILD_HOLDS_QUERY"
+            },
+            {
+              "id": "open-holds-checked",
+              "name": "Open holds are checked",
+              "nodeCode": "QUERY_OPEN_HOLDS"
+            },
+            {
+              "id": "exceptions-summarized",
+              "name": "Exceptions are summarized and the sweep question is asked",
+              "nodeCode": "SUMMARIZE_EXCEPTIONS_AND_ASK"
+            },
+            {
+              "id": "sweep-wait-reached",
+              "name": "Sweep decision wait is reached",
+              "nodeCode": "ASK_ABOUT_SWEEP"
+            }
+          ],
+          "mustNotExecute": [
+            {
+              "id": "ledger-disambiguation-not-needed",
+              "name": "Ledger disambiguation is not needed",
+              "nodeCode": "ASK_LEDGER_DISAMBIGUATION"
+            },
+            {
+              "id": "classify-not-yet-run",
+              "name": "Sweep decision is not classified yet",
+              "nodeCode": "CLASSIFY_SWEEP_DECISION"
+            },
+            {
+              "id": "route-not-yet-run",
+              "name": "Sweep routing has not run yet",
+              "nodeCode": "ROUTE_SWEEP_DECISION"
+            },
+            {
+              "id": "sweep-not-yet-submitted",
+              "name": "Sweep is not submitted yet",
+              "nodeCode": "SUBMIT_SWEEP"
+            },
+            {
+              "id": "period-open-not-yet-submitted",
+              "name": "Period open is not submitted yet",
+              "nodeCode": "SUBMIT_PERIOD_OPEN"
+            },
+            {
+              "id": "create-accounting-not-yet-submitted",
+              "name": "Create Accounting is not submitted yet",
+              "nodeCode": "SUBMIT_CREATE_ACCOUNTING"
+            },
+            {
+              "id": "period-close-not-yet-submitted",
+              "name": "Period close is not submitted yet",
+              "nodeCode": "SUBMIT_PERIOD_CLOSE"
+            },
+            {
+              "id": "final-response-not-yet-returned",
+              "name": "Final response has not been generated yet",
+              "nodeCode": "FINAL_RESPONSE"
+            },
+            {
+              "id": "submit-ap-period-close-request-path-must-not-execute-ask_ledger_period",
+              "name": "ASK_LEDGER_PERIOD does not execute",
+              "nodeCode": "ASK_LEDGER_PERIOD"
+            },
+            {
+              "id": "submit-ap-period-close-request-path-must-not-execute-poll_period_open",
+              "name": "POLL_PERIOD_OPEN does not execute",
+              "nodeCode": "POLL_PERIOD_OPEN"
+            },
+            {
+              "id": "submit-ap-period-close-request-path-must-not-execute-poll_create_accounting",
+              "name": "POLL_CREATE_ACCOUNTING does not execute",
+              "nodeCode": "POLL_CREATE_ACCOUNTING"
+            },
+            {
+              "id": "submit-ap-period-close-request-path-must-not-execute-poll_period_close",
+              "name": "POLL_PERIOD_CLOSE does not execute",
+              "nodeCode": "POLL_PERIOD_CLOSE"
+            },
+            {
+              "id": "submit-ap-period-close-request-path-must-not-execute-poll_sweep",
+              "name": "POLL_SWEEP does not execute",
+              "nodeCode": "POLL_SWEEP"
+            }
+          ]
+        },
+        "executionAssertions": {
+          "orderedNodeCodes": {
+            "id": "initial-request-node-order",
+            "name": "Initial request resolves the ledger and reaches the sweep wait in order",
+            "nodeCodes": [
+              "EXTRACT_REQUEST_DETAILS",
+              "CHECK_LEDGER_PERIOD_PROVIDED",
+              "RESOLVE_LEDGER_ID",
+              "MATCH_LEDGER_ID",
+              "CHECK_LEDGER_MATCHED",
+              "QUERY_UNACCOUNTED_INVOICES",
+              "BUILD_HOLDS_QUERY",
+              "QUERY_OPEN_HOLDS",
+              "SUMMARIZE_EXCEPTIONS_AND_ASK",
+              "ASK_ABOUT_SWEEP"
+            ]
+          },
+          "nodeCounts": {
+            "ASK_ABOUT_SWEEP": {
+              "id": "single-sweep-suspension",
+              "name": "Sweep wait suspends once",
+              "exact": 1
+            }
+          }
+        },
+        "testData": {
+          "status": "ready",
+          "capturePolicy": "model-generated",
+          "nodes": {
+            "RESOLVE_LEDGER_ID": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "items": [
+                  {
+                    "LedgerId": "300100001",
+                    "LedgerName": "Vision Operations"
+                  },
+                  {
+                    "LedgerId": "300100002",
+                    "LedgerName": "Lookahead CA PL USGAAP CAD"
+                  }
+                ],
+                "hasMore": false,
+                "count": 2
+              }
+            },
+            "QUERY_UNACCOUNTED_INVOICES": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "items": [
+                  {
+                    "InvoiceId": 300100999111111,
+                    "InvoiceNumber": "SUPP-INV-2201",
+                    "InvoiceAmount": 4250.0,
+                    "AccountingStatus": "Unaccounted"
+                  }
+                ],
+                "hasMore": false,
+                "count": 1
+              }
+            },
+            "QUERY_OPEN_HOLDS": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "items": [
+                  {
+                    "InvoiceId": 300100999222222,
+                    "InvoiceNumber": "SUPP-INV-2305",
+                    "HoldName": "Tax Variance",
+                    "ReleaseDate": null
+                  }
+                ],
+                "hasMore": false,
+                "count": 1
+              }
+            }
+          }
+        },
+        "expectedWait": {
+          "id": "sweep-decision-awaited",
+          "name": "Agent waits for the user's sweep decision",
+          "nodeCode": "ASK_ABOUT_SWEEP",
+          "nodeType": "HUMAN",
+          "channelType": "CHAT",
+          "allowedActions": [
+            "feedback"
+          ]
+        },
+        "type": "chat",
+        "input": {
+          "message": "Please close the AP period for Vision Operations, period AUG-25."
+        }
+      },
+      {
+        "stepId": "approve-sweep-and-proceed",
+        "intent": "User confirms sweeping the stuck items to the next period and continuing the close.",
+        "contextStepIds": [
+          "submit-ap-period-close-request"
+        ],
+        "assertions": {
+          "contains": [],
+          "notContains": []
+        },
+        "pathAssertions": {
+          "mustExecute": [
+            {
+              "id": "sweep-decision-classified",
+              "name": "Sweep decision is classified",
+              "nodeCode": "CLASSIFY_SWEEP_DECISION"
+            },
+            {
+              "id": "sweep-decision-routed",
+              "name": "Sweep decision is routed",
+              "nodeCode": "ROUTE_SWEEP_DECISION"
+            },
+            {
+              "id": "sweep-submitted",
+              "name": "The real sweep job is submitted",
+              "nodeCode": "SUBMIT_SWEEP"
+            },
+            {
+              "id": "sweep-polled",
+              "name": "Sweep status is polled",
+              "nodeCode": "POLL_SWEEP"
+            },
+            {
+              "id": "period-open-submitted",
+              "name": "Next period open is submitted",
+              "nodeCode": "SUBMIT_PERIOD_OPEN"
+            },
+            {
+              "id": "period-open-polled",
+              "name": "Period open status is polled",
+              "nodeCode": "POLL_PERIOD_OPEN"
+            },
+            {
+              "id": "create-accounting-submitted",
+              "name": "Create Accounting is submitted",
+              "nodeCode": "SUBMIT_CREATE_ACCOUNTING"
+            },
+            {
+              "id": "create-accounting-polled",
+              "name": "Create Accounting status is polled",
+              "nodeCode": "POLL_CREATE_ACCOUNTING"
+            },
+            {
+              "id": "period-close-submitted",
+              "name": "Current period close is submitted",
+              "nodeCode": "SUBMIT_PERIOD_CLOSE"
+            },
+            {
+              "id": "period-close-polled",
+              "name": "Period close status is polled",
+              "nodeCode": "POLL_PERIOD_CLOSE"
+            },
+            {
+              "id": "final-response-returned",
+              "name": "Final response is returned",
+              "nodeCode": "FINAL_RESPONSE"
+            }
+          ],
+          "mustNotExecute": [
+            {
+              "id": "extract-details-not-repeated",
+              "name": "Request details are not extracted again",
+              "nodeCode": "EXTRACT_REQUEST_DETAILS"
+            },
+            {
+              "id": "ledger-not-reresolved",
+              "name": "Ledger is not re-resolved",
+              "nodeCode": "RESOLVE_LEDGER_ID"
+            },
+            {
+              "id": "ledger-not-rematched",
+              "name": "Ledger is not re-matched",
+              "nodeCode": "MATCH_LEDGER_ID"
+            },
+            {
+              "id": "unaccounted-invoices-not-repeated",
+              "name": "Unaccounted invoices are not checked again",
+              "nodeCode": "QUERY_UNACCOUNTED_INVOICES"
+            },
+            {
+              "id": "open-holds-not-repeated",
+              "name": "Open holds are not checked again",
+              "nodeCode": "QUERY_OPEN_HOLDS"
+            },
+            {
+              "id": "exceptions-summary-not-repeated",
+              "name": "Exceptions summary does not repeat",
+              "nodeCode": "SUMMARIZE_EXCEPTIONS_AND_ASK"
+            },
+            {
+              "id": "sweep-wait-not-repeated",
+              "name": "Sweep wait does not repeat",
+              "nodeCode": "ASK_ABOUT_SWEEP"
+            },
+            {
+              "id": "approve-sweep-and-proceed-path-must-not-execute-check_ledger_period_provided",
+              "name": "CHECK_LEDGER_PERIOD_PROVIDED does not execute",
+              "nodeCode": "CHECK_LEDGER_PERIOD_PROVIDED"
+            },
+            {
+              "id": "approve-sweep-and-proceed-path-must-not-execute-ask_ledger_period",
+              "name": "ASK_LEDGER_PERIOD does not execute",
+              "nodeCode": "ASK_LEDGER_PERIOD"
+            },
+            {
+              "id": "approve-sweep-and-proceed-path-must-not-execute-check_ledger_matched",
+              "name": "CHECK_LEDGER_MATCHED does not execute",
+              "nodeCode": "CHECK_LEDGER_MATCHED"
+            },
+            {
+              "id": "approve-sweep-and-proceed-path-must-not-execute-build_holds_query",
+              "name": "BUILD_HOLDS_QUERY does not execute",
+              "nodeCode": "BUILD_HOLDS_QUERY"
+            },
+            {
+              "id": "approve-sweep-and-proceed-path-must-not-execute-ask_ledger_disambiguation",
+              "name": "ASK_LEDGER_DISAMBIGUATION does not execute",
+              "nodeCode": "ASK_LEDGER_DISAMBIGUATION"
+            }
+          ]
+        },
+        "executionAssertions": {
+          "orderedNodeCodes": {
+            "id": "resume-node-order",
+            "name": "Resume runs the sweep then the open/create-accounting/close sequence with status polling, in order",
+            "nodeCodes": [
+              "CLASSIFY_SWEEP_DECISION",
+              "ROUTE_SWEEP_DECISION",
+              "SUBMIT_SWEEP",
+              "POLL_SWEEP",
+              "SUBMIT_PERIOD_OPEN",
+              "POLL_PERIOD_OPEN",
+              "SUBMIT_CREATE_ACCOUNTING",
+              "POLL_CREATE_ACCOUNTING",
+              "SUBMIT_PERIOD_CLOSE",
+              "POLL_PERIOD_CLOSE",
+              "FINAL_RESPONSE"
+            ]
+          },
+          "nodeCounts": {
+            "FINAL_RESPONSE": {
+              "id": "single-final-response",
+              "name": "Final response is generated once",
+              "exact": 1
+            }
+          }
+        },
+        "judge": {
+          "minimumScore": 4,
+          "expectedOutcome": "A final message confirming that, since the user chose to sweep, the sweep job was submitted and succeeded, the next period was opened, Create Accounting was submitted for Payables, and the current period was closed - each reported based on real polled status, not assumed - with no separate human-approval step mentioned as pending.",
+          "rubric": [
+            {
+              "id": "grounded-in-replayed-data",
+              "name": "Grounded in replayed data",
+              "criterion": "The output is grounded in the replayed test data."
+            },
+            {
+              "id": "confirms-no-approval-gate",
+              "name": "Confirms no separate approval step",
+              "criterion": "The message states or implies the actions were submitted directly, not that they are pending a separate human approval."
+            },
+            {
+              "id": "covers-sweep-and-three-actions",
+              "name": "Covers the sweep and all three submitted actions",
+              "criterion": "The message mentions the sweep, opening the next period, running Create Accounting, and closing the current period."
+            },
+            {
+              "id": "reports-real-status",
+              "name": "Reports status rather than assuming it",
+              "criterion": "The message reflects the actual status values from the polled results rather than a blanket assumption of success."
+            }
+          ]
+        },
+        "testData": {
+          "status": "ready",
+          "capturePolicy": "model-generated",
+          "nodes": {
+            "SUBMIT_SWEEP": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100200"
+              }
+            },
+            "POLL_SWEEP": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100200",
+                "RequestStatus": "SUCCEEDED"
+              }
+            },
+            "SUBMIT_PERIOD_OPEN": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100111"
+              }
+            },
+            "POLL_PERIOD_OPEN": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100111",
+                "RequestStatus": "SUCCEEDED"
+              }
+            },
+            "SUBMIT_CREATE_ACCOUNTING": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100112"
+              }
+            },
+            "POLL_CREATE_ACCOUNTING": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100112",
+                "RequestStatus": "SUCCEEDED"
+              }
+            },
+            "SUBMIT_PERIOD_CLOSE": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100113"
+              }
+            },
+            "POLL_PERIOD_CLOSE": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "ReqstId": "900100113",
+                "RequestStatus": "SUCCEEDED"
+              }
+            }
+          }
+        },
+        "type": "resume",
+        "resume": {
+          "waitStepId": "submit-ap-period-close-request",
+          "action": "feedback",
+          "content": "Yes, sweep both of those to the next period and go ahead with closing this period."
+        }
+      }
+    ],
+    "executionAssertions": {
+      "waitLifecycles": [
+        {
+          "id": "sweep-decision-lifecycle",
+          "name": "Sweep decision wait suspends and resumes once",
+          "waitNodeCode": "ASK_ABOUT_SWEEP",
+          "expectedSuspensions": 1,
+          "expectedResumptions": 1
+        }
+      ]
+    }
+  }
+}

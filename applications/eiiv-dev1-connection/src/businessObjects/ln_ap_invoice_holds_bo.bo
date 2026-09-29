@@ -1,0 +1,60 @@
+{
+  "supportedObjectId": "300000049834693",
+  "name": "AP Invoice Holds",
+  "description": "Payables invoice holds, including hold name/reason and release status.",
+  "objectCode": "LN_AP_INVOICE_HOLDS_BO",
+  "family": "FIN",
+  "product": "PAYABLES",
+  "objectSource": "ADF_BC",
+  "restResourcePath": "/fscmRestApi/resources/11.13.18.05/invoiceHolds",
+  "seededFlag": false,
+  "mandatoryFlag": false,
+  "objectProperties": {
+    "jsonSchemaName": "supportedObjectProperties",
+    "jsonSchemaVersion": 1,
+    "tools": [
+      {
+        "name": "search_invoiceHolds",
+        "description": "Search AP invoice holds using a filter expression, e.g. InvoiceNumber='INV123' or a HoldName search. Each row has HoldName/HoldReason (same value), HoldDate, and release fields ReleaseName/ReleaseDate that stay null while the hold is still active and get populated once released. HoldName LIKE matching is case-sensitive - OR together all case variants. Never combine an IS NULL condition with AND in q (breaks the query, returns zero rows) - fetch by another filter and check each row's ReleaseDate directly instead.",
+        "operationType": "GET",
+        "resourcePath": "/fscmRestApi/resources/11.13.18.05/invoiceHolds?q={q}&limit=100&totalResults=true",
+        "resourceType": "ADF_BC_FIXED_QUERY",
+        "useNativeAuthentication": true,
+        "type": "BUS_OBJECT",
+        "parameterDefinitions": [
+          {
+            "name": "q",
+            "dataType": "string",
+            "description": "Filter expression using single quotes for string literals, e.g. InvoiceNumber='INV123'",
+            "id": 2,
+            "isToken": true,
+            "location": "query",
+            "source": "placeholder",
+            "defaultValue": ""
+          }
+        ],
+        "sampleQueries": [
+          {
+            "description": "Illustrative response shape.",
+            "query": {
+              "items": [
+                {
+                  "HoldId": 300100999333333,
+                  "InvoiceNumber": "INV-0002",
+                  "HoldName": "Example Hold",
+                  "HoldDate": "2026-01-01T00:00:00.000+00:00",
+                  "ReleaseName": null,
+                  "ReleaseDate": null
+                }
+              ],
+              "totalResults": 1,
+              "count": 1,
+              "hasMore": false
+            },
+            "sampleType": "response"
+          }
+        ]
+      }
+    ]
+  }
+}

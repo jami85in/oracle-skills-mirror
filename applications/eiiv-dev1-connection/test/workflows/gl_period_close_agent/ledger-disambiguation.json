@@ -1,0 +1,504 @@
+{
+  "testName": "ledger-disambiguation",
+  "scenario": {
+    "custom": false,
+    "source": "sync-plan",
+    "id": "ASK_LEDGER_DISAMBIGUATION-feedback-conversation",
+    "kind": "conversation",
+    "intent": "User gives an ambiguous ledger name that matches more than one real ledger; the agent lists the exact candidate names and asks the user to pick one, then proceeds and the user declines to run either process."
+  },
+  "workflow": {
+    "workflowCode": "GL_PERIOD_CLOSE_AGENT"
+  },
+  "authoring": {
+    "source": "model-authored",
+    "createdAt": "2026-09-29T18:25:56.650Z",
+    "userPrompt": "Verify the agent lists exact candidate ledger names and waits when the ledger is ambiguous, then correctly runs neither process when the user declines both"
+  },
+  "defaults": {
+    "dataSource": "file",
+    "evaluationMode": "hybrid"
+  },
+  "conversation": {
+    "mode": "scripted",
+    "goal": "Verify the agent detects an ambiguous ledger name, lists real candidate ledger names, waits for the user to pick the exact one, then correctly runs neither process when the user declines both.",
+    "steps": [
+      {
+        "stepId": "request-with-ambiguous-ledger",
+        "intent": "User asks about a period using a partial/ambiguous ledger name that matches multiple real ledgers.",
+        "assertions": {
+          "contains": [],
+          "notContains": []
+        },
+        "pathAssertions": {
+          "mustExecute": [
+            {
+              "id": "extract-details-reached",
+              "name": "Request details are extracted",
+              "nodeCode": "EXTRACT_REQUEST_DETAILS"
+            },
+            {
+              "id": "ledger-period-checked",
+              "name": "Ledger/period presence is checked",
+              "nodeCode": "CHECK_LEDGER_PERIOD_PROVIDED"
+            },
+            {
+              "id": "ledger-resolved",
+              "name": "Ledger LOV is fetched",
+              "nodeCode": "RESOLVE_LEDGER_ID"
+            },
+            {
+              "id": "ledger-matched",
+              "name": "Ledger name matching is attempted",
+              "nodeCode": "MATCH_LEDGER_ID"
+            },
+            {
+              "id": "ledger-match-checked",
+              "name": "Ledger match is checked",
+              "nodeCode": "CHECK_LEDGER_MATCHED"
+            },
+            {
+              "id": "disambiguation-wait-reached",
+              "name": "Ledger disambiguation wait is reached",
+              "nodeCode": "ASK_LEDGER_DISAMBIGUATION"
+            }
+          ],
+          "mustNotExecute": [
+            {
+              "id": "ledger-period-wait-not-needed",
+              "name": "Ledger/period clarification is not needed",
+              "nodeCode": "ASK_LEDGER_PERIOD"
+            },
+            {
+              "id": "confirm-and-ask-not-reached",
+              "name": "Confirmation is not reached before the ledger is confirmed",
+              "nodeCode": "CONFIRM_LEDGER_AND_ASK_ACTIONS"
+            },
+            {
+              "id": "actions-wait-not-reached",
+              "name": "Actions wait is not reached before the ledger is confirmed",
+              "nodeCode": "ASK_ABOUT_ACTIONS"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-classify_actions",
+              "name": "CLASSIFY_ACTIONS does not execute",
+              "nodeCode": "CLASSIFY_ACTIONS"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-check_run_allocation",
+              "name": "CHECK_RUN_ALLOCATION does not execute",
+              "nodeCode": "CHECK_RUN_ALLOCATION"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-submit_allocation",
+              "name": "SUBMIT_ALLOCATION does not execute",
+              "nodeCode": "SUBMIT_ALLOCATION"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-poll_allocation",
+              "name": "POLL_ALLOCATION does not execute",
+              "nodeCode": "POLL_ALLOCATION"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-check_run_revaluation",
+              "name": "CHECK_RUN_REVALUATION does not execute",
+              "nodeCode": "CHECK_RUN_REVALUATION"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-submit_revaluation",
+              "name": "SUBMIT_REVALUATION does not execute",
+              "nodeCode": "SUBMIT_REVALUATION"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-poll_revaluation",
+              "name": "POLL_REVALUATION does not execute",
+              "nodeCode": "POLL_REVALUATION"
+            },
+            {
+              "id": "request-with-ambiguous-ledger-path-must-not-execute-final_response",
+              "name": "FINAL_RESPONSE does not execute",
+              "nodeCode": "FINAL_RESPONSE"
+            }
+          ]
+        },
+        "executionAssertions": {
+          "orderedNodeCodes": {
+            "id": "ambiguous-request-node-order",
+            "name": "Ambiguous request reaches the disambiguation wait in order",
+            "nodeCodes": [
+              "EXTRACT_REQUEST_DETAILS",
+              "CHECK_LEDGER_PERIOD_PROVIDED",
+              "RESOLVE_LEDGER_ID",
+              "MATCH_LEDGER_ID",
+              "CHECK_LEDGER_MATCHED",
+              "ASK_LEDGER_DISAMBIGUATION"
+            ]
+          },
+          "nodeCounts": {
+            "ASK_LEDGER_DISAMBIGUATION": {
+              "id": "single-disambiguation-suspension",
+              "name": "Disambiguation wait suspends once",
+              "exact": 1
+            }
+          }
+        },
+        "testData": {
+          "status": "ready",
+          "capturePolicy": "model-generated",
+          "nodes": {
+            "RESOLVE_LEDGER_ID": {
+              "nodeType": "BO_FUNCTION",
+              "capture": {
+                "mode": "model-generated",
+                "responseTruncated": false
+              },
+              "metadata": {},
+              "input": null,
+              "response": {
+                "items": [
+                  {
+                    "LedgerId": "300100002",
+                    "LedgerName": "Lookahead CA PL USGAAP CAD"
+                  },
+                  {
+                    "LedgerId": "300100003",
+                    "LedgerName": "Lookahead CA SL LOCALGAAP CAD"
+                  },
+                  {
+                    "LedgerId": "300100001",
+                    "LedgerName": "Vision Operations"
+                  }
+                ],
+                "hasMore": false,
+                "count": 3
+              }
+            }
+          }
+        },
+        "expectedWait": {
+          "id": "ledger-disambiguation-awaited",
+          "name": "Agent waits for the user to pick the exact ledger",
+          "nodeCode": "ASK_LEDGER_DISAMBIGUATION",
+          "nodeType": "HUMAN",
+          "channelType": "CHAT",
+          "allowedActions": [
+            "feedback"
+          ]
+        },
+        "type": "chat",
+        "input": {
+          "message": "Can you check on CAD for period AUG-25?"
+        }
+      },
+      {
+        "stepId": "pick-exact-ledger",
+        "intent": "User replies with the exact ledger name from the candidate list.",
+        "contextStepIds": [
+          "request-with-ambiguous-ledger"
+        ],
+        "assertions": {
+          "contains": [],
+          "notContains": []
+        },
+        "pathAssertions": {
+          "mustExecute": [
+            {
+              "id": "ledger-rematched",
+              "name": "Ledger is re-matched using the clarified name",
+              "nodeCode": "MATCH_LEDGER_ID"
+            },
+            {
+              "id": "ledger-match-rechecked",
+              "name": "Ledger match is rechecked",
+              "nodeCode": "CHECK_LEDGER_MATCHED"
+            },
+            {
+              "id": "confirm-and-ask-reached",
+              "name": "Confirmation and action question is generated",
+              "nodeCode": "CONFIRM_LEDGER_AND_ASK_ACTIONS"
+            },
+            {
+              "id": "actions-wait-reached",
+              "name": "Actions decision wait is reached",
+              "nodeCode": "ASK_ABOUT_ACTIONS"
+            }
+          ],
+          "mustNotExecute": [
+            {
+              "id": "extract-details-not-repeated",
+              "name": "Request details are not extracted again",
+              "nodeCode": "EXTRACT_REQUEST_DETAILS"
+            },
+            {
+              "id": "ledger-not-reresolved",
+              "name": "Ledger LOV is not re-fetched",
+              "nodeCode": "RESOLVE_LEDGER_ID"
+            },
+            {
+              "id": "disambiguation-not-repeated",
+              "name": "Disambiguation wait does not repeat",
+              "nodeCode": "ASK_LEDGER_DISAMBIGUATION"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-check_ledger_period_provided",
+              "name": "CHECK_LEDGER_PERIOD_PROVIDED does not execute",
+              "nodeCode": "CHECK_LEDGER_PERIOD_PROVIDED"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-ask_ledger_period",
+              "name": "ASK_LEDGER_PERIOD does not execute",
+              "nodeCode": "ASK_LEDGER_PERIOD"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-classify_actions",
+              "name": "CLASSIFY_ACTIONS does not execute",
+              "nodeCode": "CLASSIFY_ACTIONS"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-check_run_allocation",
+              "name": "CHECK_RUN_ALLOCATION does not execute",
+              "nodeCode": "CHECK_RUN_ALLOCATION"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-submit_allocation",
+              "name": "SUBMIT_ALLOCATION does not execute",
+              "nodeCode": "SUBMIT_ALLOCATION"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-poll_allocation",
+              "name": "POLL_ALLOCATION does not execute",
+              "nodeCode": "POLL_ALLOCATION"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-check_run_revaluation",
+              "name": "CHECK_RUN_REVALUATION does not execute",
+              "nodeCode": "CHECK_RUN_REVALUATION"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-submit_revaluation",
+              "name": "SUBMIT_REVALUATION does not execute",
+              "nodeCode": "SUBMIT_REVALUATION"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-poll_revaluation",
+              "name": "POLL_REVALUATION does not execute",
+              "nodeCode": "POLL_REVALUATION"
+            },
+            {
+              "id": "pick-exact-ledger-path-must-not-execute-final_response",
+              "name": "FINAL_RESPONSE does not execute",
+              "nodeCode": "FINAL_RESPONSE"
+            }
+          ]
+        },
+        "executionAssertions": {
+          "orderedNodeCodes": {
+            "id": "resume-reaches-actions-wait",
+            "name": "Resume re-matches the ledger and reaches the actions wait in order",
+            "nodeCodes": [
+              "MATCH_LEDGER_ID",
+              "CHECK_LEDGER_MATCHED",
+              "CONFIRM_LEDGER_AND_ASK_ACTIONS",
+              "ASK_ABOUT_ACTIONS"
+            ]
+          },
+          "nodeCounts": {
+            "ASK_ABOUT_ACTIONS": {
+              "id": "single-actions-suspension",
+              "name": "Actions wait suspends once",
+              "exact": 1
+            }
+          }
+        },
+        "testData": {
+          "status": "ready",
+          "capturePolicy": "model-generated",
+          "nodes": {}
+        },
+        "expectedWait": {
+          "id": "actions-decision-awaited",
+          "name": "Agent waits for the user's process selection",
+          "nodeCode": "ASK_ABOUT_ACTIONS",
+          "nodeType": "HUMAN",
+          "channelType": "CHAT",
+          "allowedActions": [
+            "feedback"
+          ]
+        },
+        "type": "resume",
+        "resume": {
+          "waitStepId": "request-with-ambiguous-ledger",
+          "action": "feedback",
+          "content": "Lookahead CA PL USGAAP CAD, AUG-25"
+        }
+      },
+      {
+        "stepId": "decline-both-processes",
+        "intent": "User declines running either process for now.",
+        "contextStepIds": [
+          "request-with-ambiguous-ledger",
+          "pick-exact-ledger"
+        ],
+        "assertions": {
+          "contains": [],
+          "notContains": []
+        },
+        "pathAssertions": {
+          "mustExecute": [
+            {
+              "id": "actions-classified",
+              "name": "Actions are classified",
+              "nodeCode": "CLASSIFY_ACTIONS"
+            },
+            {
+              "id": "allocation-checked",
+              "name": "Allocation branch is checked",
+              "nodeCode": "CHECK_RUN_ALLOCATION"
+            },
+            {
+              "id": "revaluation-checked",
+              "name": "Revaluation branch is checked",
+              "nodeCode": "CHECK_RUN_REVALUATION"
+            },
+            {
+              "id": "final-response-returned",
+              "name": "Final response is returned",
+              "nodeCode": "FINAL_RESPONSE"
+            }
+          ],
+          "mustNotExecute": [
+            {
+              "id": "allocation-not-submitted",
+              "name": "Allocation is not submitted",
+              "nodeCode": "SUBMIT_ALLOCATION"
+            },
+            {
+              "id": "allocation-not-polled",
+              "name": "Allocation status is not polled",
+              "nodeCode": "POLL_ALLOCATION"
+            },
+            {
+              "id": "revaluation-not-submitted",
+              "name": "Revaluation is not submitted",
+              "nodeCode": "SUBMIT_REVALUATION"
+            },
+            {
+              "id": "revaluation-not-polled",
+              "name": "Revaluation status is not polled",
+              "nodeCode": "POLL_REVALUATION"
+            },
+            {
+              "id": "actions-wait-not-repeated",
+              "name": "Actions wait does not repeat",
+              "nodeCode": "ASK_ABOUT_ACTIONS"
+            },
+            {
+              "id": "decline-both-processes-path-must-not-execute-extract_request_details",
+              "name": "EXTRACT_REQUEST_DETAILS does not execute",
+              "nodeCode": "EXTRACT_REQUEST_DETAILS"
+            },
+            {
+              "id": "decline-both-processes-path-must-not-execute-check_ledger_period_provided",
+              "name": "CHECK_LEDGER_PERIOD_PROVIDED does not execute",
+              "nodeCode": "CHECK_LEDGER_PERIOD_PROVIDED"
+            },
+            {
+              "id": "decline-both-processes-path-must-not-execute-resolve_ledger_id",
+              "name": "RESOLVE_LEDGER_ID does not execute",
+              "nodeCode": "RESOLVE_LEDGER_ID"
+            },
+            {
+              "id": "decline-both-processes-path-must-not-execute-match_ledger_id",
+              "name": "MATCH_LEDGER_ID does not execute",
+              "nodeCode": "MATCH_LEDGER_ID"
+            },
+            {
+              "id": "decline-both-processes-path-must-not-execute-check_ledger_matched",
+              "name": "CHECK_LEDGER_MATCHED does not execute",
+              "nodeCode": "CHECK_LEDGER_MATCHED"
+            },
+            {
+              "id": "decline-both-processes-path-must-not-execute-confirm_ledger_and_ask_actions",
+              "name": "CONFIRM_LEDGER_AND_ASK_ACTIONS does not execute",
+              "nodeCode": "CONFIRM_LEDGER_AND_ASK_ACTIONS"
+            },
+            {
+              "id": "decline-both-processes-path-must-not-execute-ask_ledger_disambiguation",
+              "name": "ASK_LEDGER_DISAMBIGUATION does not execute",
+              "nodeCode": "ASK_LEDGER_DISAMBIGUATION"
+            },
+            {
+              "id": "decline-both-processes-path-must-not-execute-ask_ledger_period",
+              "name": "ASK_LEDGER_PERIOD does not execute",
+              "nodeCode": "ASK_LEDGER_PERIOD"
+            }
+          ]
+        },
+        "executionAssertions": {
+          "orderedNodeCodes": {
+            "id": "decline-node-order",
+            "name": "Decline reaches final response without submitting either job",
+            "nodeCodes": [
+              "CLASSIFY_ACTIONS",
+              "CHECK_RUN_ALLOCATION",
+              "CHECK_RUN_REVALUATION",
+              "FINAL_RESPONSE"
+            ]
+          },
+          "nodeCounts": {
+            "FINAL_RESPONSE": {
+              "id": "single-final-response",
+              "name": "Final response is generated once",
+              "exact": 1
+            }
+          }
+        },
+        "judge": {
+          "minimumScore": 4,
+          "expectedOutcome": "A final message acknowledging that neither the allocation nor revaluation process was run, inviting the user to ask again later if they change their mind.",
+          "rubric": [
+            {
+              "id": "acknowledges-no-action",
+              "name": "Acknowledges no action was taken",
+              "criterion": "The message states that no process was run."
+            },
+            {
+              "id": "invites-followup",
+              "name": "Invites a follow-up",
+              "criterion": "The message invites the user to ask again if they want to run allocation or revaluation later."
+            }
+          ]
+        },
+        "testData": {
+          "status": "ready",
+          "capturePolicy": "model-generated",
+          "nodes": {}
+        },
+        "type": "resume",
+        "resume": {
+          "waitStepId": "pick-exact-ledger",
+          "action": "feedback",
+          "content": "No thanks, not right now."
+        }
+      }
+    ],
+    "executionAssertions": {
+      "waitLifecycles": [
+        {
+          "id": "disambiguation-lifecycle",
+          "name": "Ledger disambiguation wait suspends and resumes once",
+          "waitNodeCode": "ASK_LEDGER_DISAMBIGUATION",
+          "expectedSuspensions": 1,
+          "expectedResumptions": 1
+        },
+        {
+          "id": "actions-decision-lifecycle",
+          "name": "Actions decision wait suspends and resumes once",
+          "waitNodeCode": "ASK_ABOUT_ACTIONS",
+          "expectedSuspensions": 1,
+          "expectedResumptions": 1
+        }
+      ]
+    }
+  }
+}

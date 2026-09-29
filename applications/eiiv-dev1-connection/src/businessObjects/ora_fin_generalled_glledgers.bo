@@ -1,0 +1,44 @@
+{
+  "supportedObjectId": "300000049836574",
+  "name": "GL Ledgers",
+  "description": "Fetches the full ledger LOV for the tenant, unfiltered - used to resolve/fuzzy-match a ledger name to its numeric id.",
+  "objectCode": "ORA_FIN_GENERALLED_GLLEDGERS",
+  "family": "FIN",
+  "product": "GENERAL_LEDGER",
+  "objectSource": "ADF_BC",
+  "restResourcePath": "/fscmRestApi/resources/11.13.18.05/dataAccessSetLedgersLOV",
+  "seededFlag": false,
+  "mandatoryFlag": false,
+  "objectProperties": {
+    "jsonSchemaName": "supportedObjectProperties",
+    "jsonSchemaVersion": 1,
+    "tools": [
+      {
+        "name": "getall_dataAccessSetLedgersLOV",
+        "description": "Get all ledgers in the data access set LOV, unfiltered - used to fuzzy-match a ledger name against the full list.",
+        "operationType": "GET",
+        "resourcePath": "/fscmRestApi/resources/11.13.18.05/dataAccessSetLedgersLOV",
+        "resourceType": "ADF_BC_FIXED_QUERY",
+        "useNativeAuthentication": true,
+        "type": "BUS_OBJECT",
+        "parameterDefinitions": [],
+        "sampleQueries": [
+          {
+            "description": "Illustrative response shape - actual ledger names/ids depend on this tenant's configuration.",
+            "query": {
+              "items": [
+                {
+                  "LedgerId": 300100001,
+                  "LedgerName": "Example Ledger Name"
+                }
+              ],
+              "count": 1,
+              "hasMore": false
+            },
+            "sampleType": "response"
+          }
+        ]
+      }
+    ]
+  }
+}
